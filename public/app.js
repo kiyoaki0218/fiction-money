@@ -43,7 +43,21 @@ window.app = {
       const secretKeyBytes = nacl.util.decodeBase64(secretKeyInput);
       const keyPair = nacl.sign.keyPair.fromSecretKey(secretKeyBytes);
       const publicKey = nacl.util.encodeBase64(keyPair.publicKey);
-      await registerWallet(publicKey, secretKeyInput);
+      const address = await deriveAddress(publicKey);
+
+      // まずアカウントがサーバーにあるか確認
+      const res = await fetch(`${API_BASE}/api/balance/${address}`);
+      if (res.ok) {
+        // 存在すればそのままログイン
+        app.wallet = { publicKey, secretKey: secretKeyInput, address };
+        localStorage.setItem('kc_wallet', JSON.stringify(app.wallet));
+        showView('view-dashboard');
+        updateBalance();
+        toast('ログインに成功しました', 'success');
+      } else {
+        // 存在しない（未登録）の場合はエラーを表示
+        toast('このアカウントはサーバーに登録されていません。新規作成から招待パスワードを使用して登録してください。', 'error');
+      }
       document.getElementById('restore-key').value = '';
     } catch (e) {
       toast('無効な秘密鍵です', 'error');
