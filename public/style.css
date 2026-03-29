@@ -1,0 +1,236 @@
+/* ========================================
+   KC — Extreme Minimalism & Theme System
+   ======================================== */
+
+:root {
+  --color-bg: #fff;
+  --color-text: #000;
+  --color-border: #000;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+body.dark-theme {
+  --color-bg: #000;
+  --color-text: #fff;
+  --color-border: #fff;
+}
+
+/* アニメーションの完全排除 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  transition: none !important;
+  animation: none !important;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.2;
+  padding: 20px;
+}
+
+.container {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1rem;
+  margin-bottom: 20px;
+  text-align: center;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 5px;
+}
+
+.view { display: none; }
+.view.active { display: block; }
+
+.card {
+  border: 1px solid var(--color-border);
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.balance-display {
+  text-align: center;
+}
+
+#balance-value {
+  font-size: 2.5rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  display: block;
+}
+
+.address-box {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  margin-top: 5px;
+  word-break: break-all;
+  border: 1px solid var(--color-border);
+  padding: 2px 5px;
+}
+
+/* --- Buttons --- */
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background: var(--color-text);
+  color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  margin-bottom: 5px;
+  border-radius: 0;
+  font-size: 0.8rem;
+}
+
+.btn-secondary {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.btn-sm {
+  font-size: 10px;
+  padding: 5px;
+}
+
+/* --- Layouts --- */
+
+.btn-group {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.btn-group .btn { flex: 1; }
+
+.panel {
+  border: 1px solid var(--color-border);
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 10px;
+}
+
+.panel-header h2 { font-size: 0.8rem; }
+
+.form-group {
+  margin-bottom: 10px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.7rem;
+  margin-bottom: 3px;
+}
+
+input, textarea {
+  width: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  padding: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  border-radius: 0;
+}
+
+/* --- Mods --- */
+
+.hidden { display: none !important; }
+
+#toast-container {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 300px;
+}
+
+.toast {
+  background: var(--color-text);
+  color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  padding: 8px;
+  font-size: 0.7rem;
+  margin-bottom: 5px;
+}
+
+/* モーダル */
+.modal {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal-content {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  padding: 15px;
+  width: 90%;
+  max-width: 350px;
+}
+
+.history-item {
+  border-bottom: 1px solid var(--color-border);
+  padding: 5px 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+}
+
+.theme-toggle {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 0.6rem;
+  border: 1px solid var(--color-border);
+  padding: 2px 5px;
+  cursor: pointer;
+}
+
+/* --- Mobile Responsive (480px or less) --- */
+@media (max-width: 480px) {
+  body {
+    padding: 10px;
+  }
+  .container {
+    width: 100%;
+    max-width: none;
+  }
+  #balance-value {
+    font-size: 2.2rem; /* スマホ画面に合わせた微調整 */
+  }
+  .btn {
+    padding: 14px; /* タップしやすく厚めに */
+    font-size: 0.9rem;
+  }
+  .btn-sm {
+    padding: 10px;
+    font-size: 0.75rem;
+  }
+  .card {
+    padding: 12px;
+  }
+  .theme-toggle {
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+  }
+}

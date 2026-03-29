@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KC — クレクレコイン</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-theme">
+
+  <div class="theme-toggle" onclick="app.toggleTheme()">THEME</div>
+
+  <div class="container">
+    <h1>KC — クレクレコイン</h1>
+
+    <!-- Welcome View -->
+    <div id="view-welcome" class="view">
+      <div class="card">
+        <p style="margin-bottom: 20px; font-size: 0.8rem;">自由な送金を、もっとシンプルに。</p>
+        <div class="form-group">
+          <label>招待パスワード</label>
+          <input type="text" id="invite-code" placeholder="招待パスワードを入力">
+        </div>
+        <button class="btn" onclick="app.createNewWallet()">新しいウォレットを作成</button>
+        <button class="btn btn-secondary" onclick="app.showRestoreView()">秘密鍵で復元</button>
+      </div>
+    </div>
+
+    <!-- Restore View -->
+    <div id="view-restore" class="view">
+      <div class="card">
+        <h2>復元</h2>
+        <div class="form-group">
+          <label>秘密鍵を入力</label>
+          <textarea id="restore-key" rows="3" placeholder="Base64形式の鍵を入力"></textarea>
+        </div>
+        <button class="btn" onclick="app.restoreWallet()">復元する</button>
+        <button class="btn btn-secondary" onclick="app.showWelcomeView()">戻る</button>
+      </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="view-dashboard" class="view">
+      <div class="card balance-display">
+        <label style="font-size: 0.7rem;">残高</label>
+        <span id="balance-value">0.00000</span>
+        <span style="font-weight: 800; font-size: 0.7rem;">KC</span>
+        <div>
+          <span id="wallet-address-short" class="address-box">0x...</span>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn" onclick="app.togglePanel('panel-send')">送金</button>
+        <button class="btn" onclick="app.togglePanel('panel-receive')">受取</button>
+        <button class="btn" onclick="app.togglePanel('panel-history')">履歴</button>
+      </div>
+
+      <!-- Panels -->
+      <div id="panel-send" class="panel hidden">
+        <div class="panel-header">
+          <h2>送金</h2>
+          <span onclick="app.togglePanel('panel-send')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+        </div>
+        <div class="form-group">
+          <label>宛先アドレス</label>
+          <input type="text" id="send-to" placeholder="相手のアドレス">
+        </div>
+        <div class="form-group">
+          <label>金額 (KC)</label>
+          <input type="number" id="send-amount" step="0.00001" placeholder="0.00000">
+        </div>
+        <button class="btn" onclick="app.generateSendURL()">送金URLを生成</button>
+        <button class="btn btn-secondary" onclick="app.directSend()">直接送金</button>
+        
+        <div id="url-result" class="hidden" style="margin-top: 15px;">
+          <label style="font-size: 0.7rem;">生成された送金URL</label>
+          <textarea id="generated-url" readonly rows="3"></textarea>
+          <button class="btn btn-sm" onclick="app.copyToClipboard('generated-url')">URLをコピー</button>
+        </div>
+      </div>
+
+      <div id="panel-receive" class="panel hidden">
+        <div class="panel-header">
+          <h2>受取アドレス</h2>
+          <span onclick="app.togglePanel('panel-receive')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+        </div>
+        <p style="font-size: 0.7rem; margin-bottom: 5px;">このアドレスを共有してください:</p>
+        <div id="wallet-address-full" class="address-box" style="display: block; margin-bottom: 10px;">---</div>
+        <button class="btn btn-sm" onclick="app.copyToClipboardText(app.wallet.address)">アドレスをコピー</button>
+      </div>
+
+      <div id="panel-history" class="panel hidden">
+        <div class="panel-header">
+          <h2>履歴</h2>
+          <span onclick="app.togglePanel('panel-history')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+        </div>
+        <div id="history-list">
+          <p style="text-align: center; color: #999; padding: 10px; font-size: 0.7rem;">履歴はありません</p>
+        </div>
+      </div>
+
+      <!-- Footer Management -->
+      <div style="margin-top: 30px; text-align: center;">
+        <button class="btn btn-sm btn-secondary" onclick="app.exportKey()">秘密鍵のエクスポート</button>
+        <button class="btn btn-sm btn-secondary" onclick="app.logout()">ログアウト</button>
+        <button class="btn btn-sm btn-secondary" id="btn-admin-genesis" style="display:none;" onclick="app.adminGenesis()">ADMIN GENESIS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div id="modal-key-export" class="modal hidden">
+    <div class="modal-content">
+      <h2>秘密鍵のエクスポート</h2>
+      <p style="font-size: 0.65rem; margin: 10px 0; border: 1px solid var(--color-border); padding: 5px;">
+        警告: この鍵があれば誰でも送金できます。
+      </p>
+      <textarea id="exported-key" readonly rows="3"></textarea>
+      <button class="btn btn-sm" style="margin-top: 10px;" onclick="app.copyToClipboard('exported-key')">鍵をコピー</button>
+      <button class="btn btn-sm btn-secondary" onclick="app.hideModal('modal-key-export')">閉じる</button>
+    </div>
+  </div>
+
+  <div id="modal-send-received" class="modal hidden">
+    <div class="modal-content" style="text-align: center;">
+      <h2>受取完了</h2>
+      <p id="send-received-msg" style="margin: 15px 0; font-weight: 800; font-size: 0.8rem;"></p>
+      <button class="btn btn-sm" onclick="app.hideModal('modal-send-received')">閉じる</button>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.0/nacl-util.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
