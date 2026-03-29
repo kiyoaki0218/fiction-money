@@ -27,7 +27,8 @@ function verifySignature(message, signature, publicKey) {
 
 function addressFromPublicKey(publicKeyBase64) {
   const crypto = require('crypto');
-  return crypto.createHash('sha256').update(publicKeyBase64).digest('hex').slice(0, 40);
+  const pubBytes = Buffer.from(publicKeyBase64, 'base64');
+  return crypto.createHash('sha256').update(pubBytes).digest('hex').slice(0, 40);
 }
 
 // --- API エンドポイント ---

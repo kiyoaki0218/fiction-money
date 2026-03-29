@@ -54,9 +54,10 @@ window.app = {
         showView('view-dashboard');
         updateBalance();
         toast('ログインに成功しました', 'success');
-      } else {
-        // 存在しない（未登録）の場合はエラーを表示
+      } else if (res.status === 404) {
         toast('このアカウントはサーバーに登録されていません。新規作成から招待パスワードを使用して登録してください。', 'error');
+      } else {
+        toast(`サーバーエラー (${res.status}): 環境変数(SUPABASE_URL/KEY)の設定が正しいか Vercel を確認してください。`, 'error');
       }
       document.getElementById('restore-key').value = '';
     } catch (e) {
@@ -318,9 +319,8 @@ function toast(msg, type) {
 }
 
 async function deriveAddress(publicKey) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(publicKey);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const pubBytes = nacl.util.decodeBase64(publicKey);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', pubBytes);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
 }

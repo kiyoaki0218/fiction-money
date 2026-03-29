@@ -2,7 +2,12 @@ const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('\n❌ エラー: SUPABASE_URL または SUPABASE_KEY が環境変数に設定されていません。Vercel の Settings > Environment Variables を確認してください。\n');
+}
+
+const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseKey || 'placeholder');
 
 // --- 通貨設定 ---
 const COIN_NAME = 'クレクレコイン';
