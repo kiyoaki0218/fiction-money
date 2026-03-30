@@ -133,14 +133,28 @@ app.post('/api/send', async (req, res) => {
       .digest('hex').slice(0, 16);
 
     const result = await db.processTransfer(from, to, amountInternal, nonce, signature, txId);
-
     if (!result.success) {
       return res.status(400).json(result);
     }
 
+    // --- ミニマルハイロー処理 ---
+    let gambleResult = null;
+    if (req.body.gamble) {
+      const win = Math.random() < 0.5;
+      const gambleAmount = 1 * db.INTERNAL_MULTIPLIER;
+      
+      const adj = await db.adjustBalance(from, win ? gambleAmount : -gambleAmount, win ? 'gamble_win' : 'gamble_loss');
+      if (adj.success) {
+        gambleResult = win ? 'win' : 'loss';
+      }
+    }
+
     res.json({
       ...result,
-      message: `${result.amount} ${db.COIN_SYMBOL} を送金しました`,
+      gambleResult,
+      message: `${result.amount} ${db.COIN_SYMBOL} を送金しました` + 
+        (gambleResult === 'win' ? '（ミニマルハイロー当選！1KC獲得）' : 
+         gambleResult === 'loss' ? '（ミニマルハイローはハズレでした）' : ''),
     });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -179,13 +193,27 @@ app.get('/api/process-send', async (req, res) => {
       .digest('hex').slice(0, 16);
 
     const result = await db.processTransfer(from, to, amountInternal, parseInt(nonce), signature, txId);
-
     if (!result.success) {
       return res.status(400).json(result);
     }
 
+    // --- ミニマルハイロー処理 (URL経由) ---
+    let gambleResult = null;
+    if (req.query.gamble === '1') {
+      const win = Math.random() < 0.5;
+      const gambleAmount = 1 * db.INTERNAL_MULTIPLIER;
+      const adj = await db.adjustBalance(from, win ? gambleAmount : -gambleAmount, win ? 'gamble_win' : 'gamble_loss');
+      if (adj.success) {
+        gambleResult = win ? 'win' : 'loss';
+      }
+    }
+
     // URLアクセスの場合はメインページにリダイレクト（結果パラメータ付き）
-    res.redirect(`/?tx_success=1&tx_id=${txId}&tx_amount=${amountNum}&tx_from=${from.slice(0, 8)}`);
+    let redirectUrl = `/?tx_success=1&tx_id=${txId}&tx_amount=${amountNum}&tx_from=${from.slice(0, 8)}`;
+    if (gambleResult) {
+      redirectUrl += `&gamble_res=${gambleResult}`;
+    }
+    res.redirect(redirectUrl);
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }

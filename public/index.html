@@ -72,11 +72,16 @@
           <label>金額 (KC)</label>
           <input type="number" id="send-amount" step="0.00001" placeholder="0.00000">
         </div>
+        <div class="form-group" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="send-gamble" style="width: auto; margin: 0;">
+          <label for="send-gamble" style="font-size: 0.65rem; margin: 0;">1KCを賭けてミニマルハイローに挑戦（勝率50%）</label>
+        </div>
         <button class="btn" onclick="app.generateSendURL()">送金URLを生成</button>
         <button class="btn btn-secondary" onclick="app.directSend()">直接送金</button>
 
         <div id="url-result" class="hidden" style="margin-top: 15px;">
           <label style="font-size: 0.7rem;">生成された送金URL</label>
+          <div id="send-qrcode" style="margin: 10px 0; text-align: center;"></div>
           <textarea id="generated-url" readonly rows="3"></textarea>
           <button class="btn btn-sm" onclick="app.copyToClipboard('generated-url')">URLをコピー</button>
         </div>
@@ -88,6 +93,7 @@
           <span onclick="app.togglePanel('panel-receive')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
         </div>
         <p style="font-size: 0.7rem; margin-bottom: 5px;">このアドレスを共有してください:</p>
+        <div id="receive-qrcode" style="margin: 15px 0; text-align: center;"></div>
         <div id="wallet-address-full" class="address-box" style="display: block; margin-bottom: 10px;">---</div>
         <button class="btn btn-sm" onclick="app.copyToClipboardText(app.wallet.address)">アドレスをコピー</button>
       </div>
@@ -142,6 +148,7 @@
   <!-- Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.0/nacl-util.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <script src="app.js"></script>
 </body>
 

@@ -89,6 +89,7 @@ window.app = {
       if (id === 'panel-history') loadHistory();
       if (id === 'panel-receive') {
         document.getElementById('wallet-address-full').textContent = app.wallet.address;
+        generateQRCode(app.wallet.address, 'receive-qrcode');
       }
     }
   },
@@ -99,17 +100,18 @@ window.app = {
     const amount = parseFloat(amountStr);
     if (!to || !amount) return toast('入力が不足しています', 'error');
 
-    const nonce = await fetchNonce() + 1;
-    const signature = signTransaction(to, amount, nonce);
-
+    const gamble = document.getElementById('send-gamble').checked;
+    
     const params = new URLSearchParams({
       from: app.wallet.address, to, amount: String(amount), nonce: String(nonce),
       sig: signature, pub: app.wallet.publicKey
     });
-
+    if (gamble) params.append('gamble', '1');
+    
     const url = `${window.location.origin}/api/process-send?${params.toString()}`;
     document.getElementById('generated-url').value = url;
     document.getElementById('url-result').classList.remove('hidden');
+    generateQRCode(url, 'send-qrcode');
     toast('URLを生成しました', 'success');
   },
 
@@ -117,20 +119,26 @@ window.app = {
     const to = document.getElementById('send-to').value.trim();
     const amountStr = document.getElementById('send-amount').value;
     const amount = parseFloat(amountStr);
-    if (!to || !amount) return toast('入力が不足しています', 'error');
-
-    const nonce = await fetchNonce() + 1;
-    const signature = signTransaction(to, amount, nonce);
-
+    const gamble = document.getElementById('send-gamble').checked;
+    
     try {
       const res = await fetch(`${API_BASE}/api/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: app.wallet.address, to, amount, nonce, signature, publicKey: app.wallet.publicKey })
+        body: JSON.stringify({ 
+          from: app.wallet.address, to, amount, nonce, signature, 
+          publicKey: app.wallet.publicKey, gamble 
+        })
       });
       const data = await res.json();
       if (data.success) {
-        toast('送金完了', 'success');
+        if (data.gambleResult === 'win') {
+          toast('送金完了！...さらにミニマルハイローで 1KC 当選しました！', 'success');
+        } else if (data.gambleResult === 'loss') {
+          toast('送金完了（ミニマルハイローはハズレでした）', 'info');
+        } else {
+          toast('送金完了', 'success');
+        }
         app.togglePanel('panel-send');
         updateBalance();
       } else {
@@ -318,6 +326,16 @@ function checkUrlParams() {
     const msgEl = document.getElementById('send-received-msg');
     if (msgEl) msgEl.textContent = `${amount} KC を受け取りました。`;
     showModal('modal-send-received');
+    
+    // ギャンブル結果の表示
+    const gambleRes = params.get('gamble_res');
+    if (gambleRes === 'win') {
+      setTimeout(() => toast('ミニマルハイローに挑戦し、1KC獲得しました！', 'success'), 1000);
+    } else if (gambleRes === 'loss') {
+      setTimeout(() => toast('ミニマルハイローの結果はハズレでした', 'info'), 1000);
+    }
+
+    updateBalance();
     window.history.replaceState({}, '', window.location.pathname);
   }
 }
@@ -337,4 +355,33 @@ async function deriveAddress(publicKey) {
   const hashBuffer = await crypto.subtle.digest('SHA-256', pubBytes);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
+}
+
+function generateQRCode(text, elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.innerHTML = '';
+  
+  // キャンバス要素を動的に作成
+  const canvas = document.createElement('canvas');
+  el.appendChild(canvas);
+
+  // テーマに合わせた色の設定
+  const isDark = document.body.classList.contains('dark-theme');
+  const colorDark = isDark ? '#ffffff' : '#000000';
+  const colorLight = isDark ? '#222222' : '#ffffff';
+
+  // qrcode.js (npm版ブラウザビルド) の仕様に合わせて描画
+  if (window.QRCode && QRCode.toCanvas) {
+    QRCode.toCanvas(canvas, text, {
+      width: 160,
+      margin: 2,
+      color: {
+        dark: colorDark,
+        light: colorLight
+      }
+    }, function (error) {
+      if (error) console.error(error);
+    });
+  }
 }

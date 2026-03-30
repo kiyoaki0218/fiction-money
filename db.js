@@ -133,6 +133,25 @@ async function getCoinInfo() {
 
 // --- Genesis: 管理者アカウントの初期化 ---
 
+async function adjustBalance(address, amountInternal, type = 'gamble') {
+  // ギャンブルの結果として残高を調整する（RPCを使用）
+  const { data, error } = await supabase.rpc('adjust_balance', {
+    p_address: address,
+    p_amount: amountInternal,
+    p_type: type
+  });
+
+  if (error || !data.success) {
+    return { success: false, error: (error ? error.message : data.error) || '残高調整に失敗しました' };
+  }
+
+  return {
+    success: true,
+    address,
+    amount: amountInternal / INTERNAL_MULTIPLIER,
+  };
+}
+
 async function initAdminAccount(address, publicKey) {
   const adminBalance = Math.floor(TOTAL_SUPPLY_INTERNAL * ADMIN_RATIO);
 
@@ -170,4 +189,5 @@ module.exports = {
   getTransactions,
   getCoinInfo,
   initAdminAccount,
+  adjustBalance,
 };
