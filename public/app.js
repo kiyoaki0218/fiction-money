@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   loadWallet();
   checkUrlParams();
+  updateStats();
 });
 
 // --- Public App Interface ---
@@ -18,7 +19,7 @@ window.app = {
   // Navigation
   showWelcomeView: () => showView('view-welcome'),
   showRestoreView: () => showView('view-restore'),
-  
+
   // Theme Management
   toggleTheme: () => {
     const isDark = document.body.classList.toggle('dark-theme');
@@ -29,13 +30,13 @@ window.app = {
   createNewWallet: async () => {
     const inviteCode = document.getElementById('invite-code').value.trim();
     if (!inviteCode) return toast('招待パスワードが必要です', 'error');
-    
+
     const keyPair = nacl.sign.keyPair();
     const publicKey = nacl.util.encodeBase64(keyPair.publicKey);
     const secretKey = nacl.util.encodeBase64(keyPair.secretKey);
     await registerWallet(publicKey, secretKey, inviteCode);
   },
-  
+
   restoreWallet: async () => {
     const secretKeyInput = document.getElementById('restore-key').value.trim();
     if (!secretKeyInput) return toast('秘密鍵が必要です', 'error');
@@ -64,20 +65,20 @@ window.app = {
       toast('無効な秘密鍵です', 'error');
     }
   },
-  
+
   logout: () => {
     if (!confirm('ログアウトしますか？秘密鍵は保存されません。')) return;
     localStorage.removeItem('kc_wallet');
     app.wallet = null;
     showView('view-welcome');
   },
-  
+
   exportKey: () => {
     if (!app.wallet) return;
     document.getElementById('exported-key').value = app.wallet.secretKey;
     showModal('modal-key-export');
   },
-  
+
   // Transactions
   togglePanel: (id) => {
     const el = document.getElementById(id);
@@ -91,36 +92,36 @@ window.app = {
       }
     }
   },
-  
+
   generateSendURL: async () => {
     const to = document.getElementById('send-to').value.trim();
     const amountStr = document.getElementById('send-amount').value;
     const amount = parseFloat(amountStr);
     if (!to || !amount) return toast('入力が不足しています', 'error');
-    
+
     const nonce = await fetchNonce() + 1;
     const signature = signTransaction(to, amount, nonce);
-    
+
     const params = new URLSearchParams({
       from: app.wallet.address, to, amount: String(amount), nonce: String(nonce),
       sig: signature, pub: app.wallet.publicKey
     });
-    
+
     const url = `${window.location.origin}/api/process-send?${params.toString()}`;
     document.getElementById('generated-url').value = url;
     document.getElementById('url-result').classList.remove('hidden');
     toast('URLを生成しました', 'success');
   },
-  
+
   directSend: async () => {
     const to = document.getElementById('send-to').value.trim();
     const amountStr = document.getElementById('send-amount').value;
     const amount = parseFloat(amountStr);
     if (!to || !amount) return toast('入力が不足しています', 'error');
-    
+
     const nonce = await fetchNonce() + 1;
     const signature = signTransaction(to, amount, nonce);
-    
+
     try {
       const res = await fetch(`${API_BASE}/api/send`, {
         method: 'POST',
@@ -139,7 +140,7 @@ window.app = {
       toast('通信エラー', 'error');
     }
   },
-  
+
   adminGenesis: async () => {
     if (!confirm('Genesisを実行しますか？')) return;
     try {
@@ -159,14 +160,14 @@ window.app = {
       toast('通信エラー', 'error');
     }
   },
-  
+
   copyToClipboard: (id) => {
     const el = document.getElementById(id);
     el.select();
     document.execCommand('copy');
     toast('コピーしました', 'success');
   },
-  
+
   copyToClipboardText: (text) => {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -176,9 +177,10 @@ window.app = {
     document.body.removeChild(ta);
     toast('コピーしました', 'success');
   },
-  
+
   hideModal: (id) => document.getElementById(id).classList.add('hidden'),
-  updateBalance: () => updateBalance()
+  updateBalance: () => updateBalance(),
+  updateStats: () => updateStats()
 };
 
 // --- Internal Functions ---
@@ -225,7 +227,7 @@ function loadWallet() {
 async function updateBalance() {
   if (!app.wallet) return;
   document.getElementById('wallet-address-short').textContent = app.wallet.address.slice(0, 8) + '...';
-  
+
   // Admin button visibility
   const adminBtn = document.getElementById('btn-admin-genesis');
   if (adminBtn) adminBtn.style.display = 'inline-block';
@@ -236,7 +238,19 @@ async function updateBalance() {
     if (data.success) {
       document.getElementById('balance-value').textContent = Number(data.balance).toFixed(5);
     }
-  } catch (e) {}
+  } catch (e) { }
+  updateStats();
+}
+
+async function updateStats() {
+  try {
+    const res = await fetch(`${API_BASE}/api/info`);
+    const data = await res.json();
+    if (data.success && data.coin) {
+      const el = document.getElementById('circulating-supply');
+      if (el) el.textContent = data.coin.circulatingDisplay;
+    }
+  } catch (e) { }
 }
 
 async function loadHistory() {
@@ -254,7 +268,7 @@ async function loadHistory() {
           <div class="history-item">
             <div>
               <div style="font-weight:700;">${tx.type === 'transfer' ? (isSent ? '送金' : '受取') : '配付'}</div>
-              <div style="font-size:0.6rem; opacity:0.6;">${addr.slice(0,10)}...</div>
+              <div style="font-size:0.6rem; opacity:0.6;">${addr.slice(0, 10)}...</div>
             </div>
             <div style="font-weight:800;">${sign}${tx.amountDisplay}</div>
           </div>
@@ -263,7 +277,7 @@ async function loadHistory() {
     } else {
       listEl.innerHTML = '<p style="text-align:center; color:#999; padding:10px; font-size:0.7rem;">履歴はありません</p>';
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function signTransaction(to, amount, nonce) {
@@ -291,7 +305,7 @@ function showModal(id) {
 
 function checkUrlParams() {
   const params = new URLSearchParams(window.location.search);
-  
+
   // 招待コードの自動セット
   const invite = params.get('invite');
   const inviteInput = document.getElementById('invite-code');

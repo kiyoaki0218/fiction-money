@@ -252,6 +252,10 @@ app.get('/{*splat}', (req, res) => {
 });
 
 // --- サーバー起動 ---
-app.listen(PORT, () => {
-  console.log(`\n  🪙 ${db.COIN_NAME} サーバーレス準備完了 (Port: ${PORT})`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`\n  🪙 ${db.COIN_NAME} サーバーレス準備完了 (Port: ${PORT})`);
+  });
+}
+
+module.exports = app;

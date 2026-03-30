@@ -17,7 +17,7 @@ const DECIMALS = 5;
 const INTERNAL_MULTIPLIER = 10 ** DECIMALS;
 const TOTAL_SUPPLY_INTERNAL = TOTAL_SUPPLY * INTERNAL_MULTIPLIER;
 const ADMIN_RATIO = 0.9;
-const REGISTRATION_BONUS = 1000;
+const REGISTRATION_BONUS = 100;
 const REGISTRATION_BONUS_INTERNAL = REGISTRATION_BONUS * INTERNAL_MULTIPLIER;
 
 // --- アカウント操作 ---
@@ -29,7 +29,7 @@ async function registerAccount(address, publicKey) {
     .select('value')
     .eq('key', 'distributed')
     .single();
-  
+
   const distributed = distributedRow ? Number(distributedRow.value) : 0;
   const poolSupply = TOTAL_SUPPLY_INTERNAL * (1 - ADMIN_RATIO);
   const remainingPool = poolSupply - distributed;
@@ -123,7 +123,7 @@ async function getCoinInfo() {
   // 流通量の取得
   const { data: accounts } = await supabase.from('accounts').select('balance');
   const totalBalance = accounts ? accounts.reduce((sum, acc) => sum + Number(acc.balance), 0) : 0;
-  
+
   info.circulating = totalBalance;
   info.circulatingDisplay = (totalBalance / INTERNAL_MULTIPLIER).toLocaleString();
   info.totalAccounts = accounts ? accounts.length : 0;
@@ -135,7 +135,7 @@ async function getCoinInfo() {
 
 async function initAdminAccount(address, publicKey) {
   const adminBalance = Math.floor(TOTAL_SUPPLY_INTERNAL * ADMIN_RATIO);
-  
+
   // 管理者作成プロシージャ
   const { data, error } = await supabase.rpc('register_account', {
     p_address: address,

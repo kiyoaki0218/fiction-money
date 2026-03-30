@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KC — クレクレコイン</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body class="light-theme">
 
   <div class="theme-toggle" onclick="app.toggleTheme()">THEME</div>
@@ -72,7 +74,7 @@
         </div>
         <button class="btn" onclick="app.generateSendURL()">送金URLを生成</button>
         <button class="btn btn-secondary" onclick="app.directSend()">直接送金</button>
-        
+
         <div id="url-result" class="hidden" style="margin-top: 15px;">
           <label style="font-size: 0.7rem;">生成された送金URL</label>
           <textarea id="generated-url" readonly rows="3"></textarea>
@@ -104,8 +106,13 @@
       <div style="margin-top: 30px; text-align: center;">
         <button class="btn btn-sm btn-secondary" onclick="app.exportKey()">秘密鍵のエクスポート</button>
         <button class="btn btn-sm btn-secondary" onclick="app.logout()">ログアウト</button>
-        <button class="btn btn-sm btn-secondary" id="btn-admin-genesis" style="display:none;" onclick="app.adminGenesis()">ADMIN GENESIS</button>
+        <button class="btn btn-sm btn-secondary" id="btn-admin-genesis" style="display:none;"
+          onclick="app.adminGenesis()">ADMIN GENESIS</button>
       </div>
+    </div>
+    <!-- 市場配布統計 -->
+    <div id="stats-display" style="margin-top: 40px; text-align: center; font-size: 0.65rem; opacity: 0.5;">
+      市場配布KC総数: <span id="circulating-supply">--</span> / 1,000,000,000 KC
     </div>
   </div>
 
@@ -137,4 +144,5 @@
   <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>
