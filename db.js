@@ -23,18 +23,8 @@ const REGISTRATION_BONUS_INTERNAL = REGISTRATION_BONUS * INTERNAL_MULTIPLIER;
 // --- アカウント操作 ---
 
 async function registerAccount(address, publicKey) {
-  // 1. ボーナスプールのチェック
-  const { data: distributedRow } = await supabase
-    .from('coin_info')
-    .select('value')
-    .eq('key', 'distributed')
-    .single();
-
-  const distributed = distributedRow ? Number(distributedRow.value) : 0;
-  const poolSupply = TOTAL_SUPPLY_INTERNAL * (1 - ADMIN_RATIO);
-  const remainingPool = poolSupply - distributed;
-
-  const bonus = (remainingPool >= REGISTRATION_BONUS_INTERNAL) ? REGISTRATION_BONUS_INTERNAL : 0;
+  // 1. ボーナスを常に付与するように設定（条件チェックをバイパス）
+  const bonus = REGISTRATION_BONUS_INTERNAL;
 
   // 2. RPCによるアトミックな登録
   const { data, error } = await supabase.rpc('register_account', {
