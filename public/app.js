@@ -312,19 +312,48 @@ async function updateStats() {
 async function loadHistory() {
   const listEl = document.getElementById('history-list');
   try {
-    const res = await fetch(`${API_BASE}/api/transactions/${app.wallet.address}`);
-    const data = await res.json();
-    if (data.success && data.transactions.length > 0) {
-      listEl.innerHTML = data.transactions.map(tx => {
+    const message = `${app.wallet.address}:GET_NICKNAMES`;
+    const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+    const msgBytes = nacl.util.decodeUTF8(message);
+    const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+    const signature = nacl.util.encodeBase64(sigBytes);
+
+    const [txRes, nickRes] = await Promise.all([
+      fetch(`${API_BASE}/api/transactions/${app.wallet.address}`),
+      fetch(`${API_BASE}/api/nicknames/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner: app.wallet.address, signature, publicKey: app.wallet.publicKey })
+      })
+    ]);
+
+    const txData = await txRes.json();
+    const nickData = await nickRes.json();
+    
+    if (nickData.success) {
+      nickData.nicknames.forEach(n => {
+        if (n.nickname) nicknamesCache[n.target_address] = n.nickname;
+      });
+    }
+
+    if (txData.success && txData.transactions.length > 0) {
+      listEl.innerHTML = txData.transactions.map(tx => {
         const isSent = tx.direction === 'sent';
         const sign = isSent ? '-' : '+';
-        const classStr = isSent ? 'sent' : 'received';
         const addr = isSent ? tx.to_addr : tx.from_addr;
+        const name = (addr === 'GENESIS') ? '管理(GENESIS)' : (nicknamesCache[addr] || addr.slice(0, 10) + '...');
+        
+        let dateStr = '';
+        if (tx.created_at) {
+          const d = new Date(tx.created_at);
+          dateStr = d.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
         return `
           <div class="history-item">
             <div>
-              <div style="font-weight:700;">${tx.type === 'transfer' ? (isSent ? '送金' : '受取') : '配付'}</div>
-              <div style="font-size:0.6rem; opacity:0.6;">${addr.slice(0, 10)}...</div>
+              <div style="font-weight:700;">${tx.type === 'transfer' ? (isSent ? '送金' : '受取') : '配付'} <span style="font-size:0.6rem;font-weight:normal;opacity:0.6;margin-left:5px;">${dateStr}</span></div>
+              <div style="font-size:0.6rem; margin-top:2px; opacity:0.9;">相手: <span style="font-weight:bold;">${name}</span> <span style="font-size:0.5rem; opacity:0.6">(${addr.slice(0, 6)}...)</span></div>
             </div>
             <div style="font-weight:800;">${sign}${tx.amountDisplay}</div>
           </div>
