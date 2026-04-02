@@ -213,6 +213,47 @@ app.post('/api/onetime-link/receive', async (req, res) => {
   }
 });
 
+// 従来の特定宛先用URL経由の送金処理
+app.get('/api/process-send', async (req, res) => {
+  try {
+    const { from, to, amount, nonce, sig, pub } = req.query;
+
+    if (!from || !to || !amount || !nonce || !sig || !pub) {
+      return res.status(400).json({ success: false, error: '不正な送金URLです' });
+    }
+
+    const publicKey = decodeURIComponent(pub);
+    const signature = decodeURIComponent(sig);
+
+    const derivedAddress = addressFromPublicKey(publicKey);
+    if (derivedAddress !== from) {
+      return res.status(403).json({ success: false, error: '公開鍵と送信者アドレスが一致しません' });
+    }
+
+    const message = `${from}:${to}:${amount}:${nonce}`;
+    if (!verifySignature(message, signature, publicKey)) {
+      return res.status(403).json({ success: false, error: '署名の検証に失敗しました' });
+    }
+
+    const amountNum = parseFloat(amount);
+    const amountInternal = Math.round(amountNum * db.INTERNAL_MULTIPLIER);
+    const crypto = require('crypto');
+    const txId = crypto.createHash('sha256')
+      .update(`${from}:${to}:${amountInternal}:${nonce}:${signature}`)
+      .digest('hex').slice(0, 16);
+
+    const result = await db.processTransfer(from, to, amountInternal, parseInt(nonce), signature, txId);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    let redirectUrl = `/?tx_success=1&tx_id=${txId}&tx_amount=${amountNum}&tx_from=${from.slice(0, 8)}`;
+    res.redirect(redirectUrl);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // 取引履歴
 app.get('/api/transactions/:address', async (req, res) => {
   try {

@@ -96,38 +96,61 @@ window.app = {
     }
   },
 
-  generateOnetimeURL: async () => {
+  generateSendURL: async () => {
+    const to = document.getElementById('send-to').value.trim();
     const amountStr = document.getElementById('send-amount').value;
     const amount = parseFloat(amountStr);
     if (!amount) return toast('金額を入力してください', 'error');
 
-    const nonce = await fetchNonce() + 1;
-    const message = `${app.wallet.address}:ONETIME:${amount}:${nonce}`;
-    const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
-    const msgBytes = nacl.util.decodeUTF8(message);
-    const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
-    const signature = nacl.util.encodeBase64(sigBytes);
+    if (!to) {
+      // 誰でも受け取れるURLモード（ONETIME）
+      const nonce = await fetchNonce() + 1;
+      const message = `${app.wallet.address}:ONETIME:${amount}:${nonce}`;
+      const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+      const msgBytes = nacl.util.decodeUTF8(message);
+      const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+      const signature = nacl.util.encodeBase64(sigBytes);
 
-    try {
-      const res = await fetch(`${API_BASE}/api/onetime-link/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: app.wallet.address, amount, nonce, signature, publicKey: app.wallet.publicKey
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        const url = `${window.location.origin}/?receive_link=${data.linkId}`;
-        document.getElementById('generated-url').value = url;
-        document.getElementById('url-result').classList.remove('hidden');
-        generateQRCode(url, 'send-qrcode');
-        toast('ギフトURLを作成しました', 'success');
-      } else {
-        toast(data.error || 'エラー発生', 'error');
+      try {
+        const res = await fetch(`${API_BASE}/api/onetime-link/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: app.wallet.address, amount, nonce, signature, publicKey: app.wallet.publicKey
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          const url = `${window.location.origin}/?receive_link=${data.linkId}`;
+          document.getElementById('generated-url').value = url;
+          document.getElementById('url-result').classList.remove('hidden');
+          generateQRCode(url, 'send-qrcode');
+          toast('送金URLを作成しました', 'success');
+        } else {
+          toast(data.error || 'エラー発生', 'error');
+        }
+      } catch (e) {
+        toast('通信エラー', 'error');
       }
-    } catch (e) {
-      toast('通信エラー', 'error');
+    } else {
+      // 特定の宛先を想定した従来のURLモード
+      const nonce = await fetchNonce() + 1;
+      const message = `${app.wallet.address}:${to}:${amount}:${nonce}`;
+      const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+      const msgBytes = nacl.util.decodeUTF8(message);
+      const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+      const signature = nacl.util.encodeBase64(sigBytes);
+
+      const params = new URLSearchParams({
+        from: app.wallet.address, to, amount: String(amount), nonce: String(nonce),
+        sig: signature, pub: app.wallet.publicKey
+      });
+      
+      const url = `${window.location.origin}/api/process-send?${params.toString()}`;
+      document.getElementById('generated-url').value = url;
+      document.getElementById('url-result').classList.remove('hidden');
+      generateQRCode(url, 'send-qrcode');
+      toast('送金URLを作成しました', 'success');
     }
   },
 
