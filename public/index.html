@@ -56,6 +56,7 @@
         <button class="btn" onclick="app.togglePanel('panel-send')">送金</button>
         <button class="btn" onclick="app.togglePanel('panel-receive')">受取</button>
         <button class="btn" onclick="app.togglePanel('panel-history')">履歴</button>
+        <button class="btn" onclick="app.togglePanel('panel-dm')">連絡先(DM)</button>
       </div>
 
       <!-- Panels -->
@@ -106,6 +107,17 @@
         </div>
       </div>
 
+      <div id="panel-dm" class="panel hidden">
+        <div class="panel-header">
+          <h2>連絡先</h2>
+          <span onclick="app.togglePanel('panel-dm')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+        </div>
+        <div id="requests-list" style="margin-bottom: 15px;"></div>
+        <div id="dm-list">
+          <p style="text-align: center; color: #999; padding: 10px; font-size: 0.7rem;">履歴情報はありません</p>
+        </div>
+      </div>
+
       <!-- Footer Management -->
       <div style="margin-top: 30px; text-align: center;">
         <button class="btn btn-sm btn-secondary" onclick="app.exportKey()">秘密鍵のエクスポート</button>
@@ -135,9 +147,22 @@
 
   <div id="modal-send-received" class="modal hidden">
     <div class="modal-content" style="text-align: center;">
-      <h2>受取完了</h2>
+      <h2>完了</h2>
       <p id="send-received-msg" style="margin: 15px 0; font-weight: 800; font-size: 0.8rem;"></p>
       <button class="btn btn-sm" onclick="app.hideModal('modal-send-received')">閉じる</button>
+    </div>
+  </div>
+
+  <div id="modal-dm-action" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="dm-action-name" style="margin-bottom:5px;">User</h2>
+      <p id="dm-action-addr" style="font-size:0.6rem; color:#888; margin-bottom:15px; word-break:break-all;"></p>
+      
+      <button class="btn" onclick="app.prepareDirectSendFromDM()" style="margin-bottom: 10px;">送金する</button>
+      <button class="btn btn-secondary" onclick="app.sendPaymentRequest()" style="margin-bottom: 10px;">送金リクエストを送る</button>
+      <button class="btn btn-secondary" onclick="app.editNickname()" style="margin-bottom: 15px;">ニックネームを編集</button>
+
+      <button class="btn btn-sm btn-secondary" onclick="app.hideModal('modal-dm-action')">閉じる</button>
     </div>
   </div>
 

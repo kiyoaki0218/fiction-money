@@ -272,6 +272,76 @@ app.get('/api/transactions/:address', async (req, res) => {
   }
 });
 
+// --- Phase 3: ニックネーム管理 API ---
+
+// ニックネーム一覧取得 (プライバシー保護のため署名必須)
+app.post('/api/nicknames/list', async (req, res) => {
+  try {
+    const { owner, signature, publicKey } = req.body;
+    if (!verifySignature(`${owner}:GET_NICKNAMES`, signature, publicKey)) {
+      return res.status(403).json({ success: false, error: '署名が無効です' });
+    }
+    const derivedAddress = addressFromPublicKey(publicKey);
+    if (derivedAddress !== owner) {
+      return res.status(403).json({ success: false, error: '公開鍵が不正です' });
+    }
+
+    const nicknames = await db.getNicknames(owner);
+    res.json({ success: true, nicknames });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ニックネーム設定
+app.post('/api/nicknames/set', async (req, res) => {
+  try {
+    const { owner, target, nickname, signature, publicKey } = req.body;
+    if (!verifySignature(`${owner}:${target}:${nickname}`, signature, publicKey)) {
+      return res.status(403).json({ success: false, error: '署名が無効です' });
+    }
+    const result = await db.setNickname(owner, target, nickname);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// --- Phase 3: 送金リクエスト (DM) API ---
+
+app.post('/api/requests/create', async (req, res) => {
+  try {
+    const { requester, target, amount, signature, publicKey } = req.body;
+    // リクエストの送信者(requester)が署名
+    const msgAmount = amount ? amount : '0';
+    if (!verifySignature(`${requester}:REQUEST:${target}:${msgAmount}`, signature, publicKey)) {
+      return res.status(403).json({ success: false, error: '署名が無効です' });
+    }
+    const amountInternal = amount ? Math.round(parseFloat(amount) * db.INTERNAL_MULTIPLIER) : null;
+    const result = await db.createPaymentRequest(requester, target, amountInternal);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/requests/list', async (req, res) => {
+  try {
+    const { target, signature, publicKey } = req.body;
+    if (!verifySignature(`${target}:GET_REQUESTS`, signature, publicKey)) {
+      return res.status(403).json({ success: false, error: '署名が無効です' });
+    }
+    const requests = await db.getPaymentRequests(target);
+    const formatted = requests.map(r => ({
+      ...r,
+      amountDisplay: r.amount ? (r.amount / db.INTERNAL_MULTIPLIER).toFixed(db.DECIMALS) : null
+    }));
+    res.json({ success: true, requests: formatted });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // 管理者: Genesis（初回のみ）
 app.post('/api/admin/genesis', async (req, res) => {
   try {

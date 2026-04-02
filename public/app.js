@@ -87,6 +87,10 @@ window.app = {
     if (isHidden) {
       el.classList.remove('hidden');
       if (id === 'panel-history') loadHistory();
+      if (id === 'panel-dm') {
+        loadDMList();
+        loadRequests();
+      }
       if (id === 'panel-receive') {
         document.getElementById('wallet-address-full').textContent = app.wallet.address;
         const payUrl = `${window.location.origin}/?pay_to=${app.wallet.address}`;
@@ -441,27 +445,201 @@ function generateQRCode(text, elementId) {
   const el = document.getElementById(elementId);
   if (!el) return;
   el.innerHTML = '';
-  
-  // キャンバス要素を動的に作成
   const canvas = document.createElement('canvas');
   el.appendChild(canvas);
-
-  // テーマに合わせた色の設定
   const isDark = document.body.classList.contains('dark-theme');
   const colorDark = isDark ? '#ffffff' : '#000000';
   const colorLight = isDark ? '#222222' : '#ffffff';
-
-  // qrcode.js (npm版ブラウザビルド) の仕様に合わせて描画
   if (window.QRCode && QRCode.toCanvas) {
-    QRCode.toCanvas(canvas, text, {
-      width: 160,
-      margin: 2,
-      color: {
-        dark: colorDark,
-        light: colorLight
-      }
-    }, function (error) {
-      if (error) console.error(error);
-    });
+    QRCode.toCanvas(canvas, text, { width: 160, margin: 2, color: { dark: colorDark, light: colorLight } }, err => { if (err) console.error(err); });
   }
 }
+
+// --- Phase 3: DM & Nickname functions ---
+let nicknamesCache = {};
+
+app.editNickname = async () => {
+  const target = document.getElementById('dm-action-addr').textContent;
+  const currentName = nicknamesCache[target] || '';
+  const newName = prompt('ニックネームを入力してください (空で削除)', currentName);
+  if (newName === null) return; // cancelled
+
+  const message = `${app.wallet.address}:${target}:${newName}`;
+  const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+  const msgBytes = nacl.util.decodeUTF8(message);
+  const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+  const signature = nacl.util.encodeBase64(sigBytes);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/nicknames/set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        owner: app.wallet.address, target, nickname: newName, signature, publicKey: app.wallet.publicKey
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast('ニックネームを保存しました', 'success');
+      app.hideModal('modal-dm-action');
+      loadDMList();
+    } else {
+      toast('保存に失敗しました', 'error');
+    }
+  } catch (e) {
+    toast('通信エラー', 'error');
+  }
+};
+
+app.prepareDirectSendFromDM = () => {
+  const target = document.getElementById('dm-action-addr').textContent;
+  app.hideModal('modal-dm-action');
+  app.togglePanel('panel-send');
+  document.getElementById('send-to').value = target;
+  document.getElementById('send-amount').focus();
+};
+
+app.sendPaymentRequest = async () => {
+  const target = document.getElementById('dm-action-addr').textContent;
+  const amountStr = prompt('請求する金額を入力してください (空欄の場合は相手が決めることができます)');
+  if (amountStr === null) return;
+  const amount = amountStr ? parseFloat(amountStr) : null;
+  if (amountStr && isNaN(amount)) return toast('無効な金額です', 'error');
+
+  const messageStr = amount ? amount.toString() : '0';
+  const message = `${app.wallet.address}:REQUEST:${target}:${messageStr}`;
+  const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+  const msgBytes = nacl.util.decodeUTF8(message);
+  const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+  const signature = nacl.util.encodeBase64(sigBytes);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/requests/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requester: app.wallet.address, target, amount, signature, publicKey: app.wallet.publicKey
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast('リクエストを送信しました', 'success');
+      app.hideModal('modal-dm-action');
+    } else {
+      toast('リクエストの送信に失敗しました', 'error');
+    }
+  } catch (e) {
+    toast('通信エラー', 'error');
+  }
+};
+
+app.openDMAction = (addr) => {
+  document.getElementById('dm-action-addr').textContent = addr;
+  document.getElementById('dm-action-name').textContent = nicknamesCache[addr] || addr.slice(0, 8) + '...';
+  showModal('modal-dm-action');
+};
+
+async function loadDMList() {
+  const listEl = document.getElementById('dm-list');
+  listEl.innerHTML = '<p style="text-align:center; padding:10px; font-size: 0.7rem;">読み込み中...</p>';
+  try {
+    const message = `${app.wallet.address}:GET_NICKNAMES`;
+    const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+    const msgBytes = nacl.util.decodeUTF8(message);
+    const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+    const signature = nacl.util.encodeBase64(sigBytes);
+
+    const [txRes, nickRes] = await Promise.all([
+      fetch(`${API_BASE}/api/transactions/${app.wallet.address}`),
+      fetch(`${API_BASE}/api/nicknames/list`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner: app.wallet.address, signature, publicKey: app.wallet.publicKey })
+      }),
+    ]);
+    const txData = await txRes.json();
+    const nickData = await nickRes.json();
+
+    const contacts = new Set();
+    if (txData.success) {
+      txData.transactions.forEach(tx => {
+        const addr = tx.from_addr === app.wallet.address ? tx.to_addr : tx.from_addr;
+        if (addr !== 'GENESIS') contacts.add(addr);
+      });
+    }
+
+    nicknamesCache = {};
+    if (nickData.success) {
+      nickData.nicknames.forEach(n => {
+        if (n.nickname) nicknamesCache[n.target_address] = n.nickname;
+        if (n.target_address !== 'GENESIS') contacts.add(n.target_address);
+      });
+    }
+
+    if (contacts.size > 0) {
+      listEl.innerHTML = Array.from(contacts).map(addr => {
+        const name = nicknamesCache[addr] || addr.slice(0, 8) + '...';
+        return `
+          <div class="history-item" style="cursor:pointer;" onclick="app.openDMAction('${addr}')">
+            <div>
+              <div style="font-weight:700;">${name}</div>
+              <div style="font-size:0.5rem; opacity:0.6;">${addr.slice(0,16)}...</div>
+            </div>
+            <div style="font-size:0.6rem;">&gt;</div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      listEl.innerHTML = '<p style="text-align:center; color:#999; padding:10px; font-size:0.7rem;">履歴情報はありません</p>';
+    }
+  } catch (e) {
+    listEl.innerHTML = '<p style="text-align:center; color:red; padding:10px;">エラーが発生しました</p>';
+  }
+}
+
+async function loadRequests() {
+  const listEl = document.getElementById('requests-list');
+  listEl.innerHTML = '';
+  try {
+    const message = `${app.wallet.address}:GET_REQUESTS`;
+    const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+    const msgBytes = nacl.util.decodeUTF8(message);
+    const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+    const signature = nacl.util.encodeBase64(sigBytes);
+
+    const res = await fetch(`${API_BASE}/api/requests/list`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target: app.wallet.address, signature, publicKey: app.wallet.publicKey })
+    });
+    const data = await res.json();
+    
+    if (data.success && data.requests.length > 0) {
+      listEl.innerHTML = '<h3 style="font-size: 0.7rem; color: #ff6b6b; margin-bottom: 5px;">🔥 あなたへの送金リクエスト</h3>' +
+        data.requests.map(r => {
+          const name = nicknamesCache[r.requester_address] || r.requester_address.slice(0, 8) + '...';
+          const amtStr = r.amountDisplay ? `${r.amountDisplay} KC` : '金額指定なし';
+          return `
+            <div class="history-item" style="border: 1px dashed #ff6b6b; margin-bottom: 5px;">
+              <div>
+                <div style="font-weight:700;">${name} からのリクエスト</div>
+                <div style="font-weight:800;">${amtStr}</div>
+              </div>
+              <button class="btn btn-sm" onclick="app.fulfillRequest('${r.requester_address}', '${r.amountDisplay || ''}')">支払う</button>
+            </div>
+          `;
+        }).join('');
+    }
+  } catch (e) {}
+}
+
+app.fulfillRequest = (requester, amount) => {
+  app.togglePanel('panel-send');
+  document.getElementById('send-to').value = requester;
+  if (amount) {
+    document.getElementById('send-amount').value = parseFloat(amount);
+  } else {
+    document.getElementById('send-amount').value = '';
+    document.getElementById('send-amount').focus();
+  }
+};

@@ -172,6 +172,60 @@ async function claimOnetimeLink(linkId, receiverAddr) {
   return { success: true, link: data };
 }
 
+// --- ニックネーム (DM機能) 処理 ---
+
+async function setNickname(owner, target, nickname) {
+  // 制約上、同じ owner と target の組み合わせでupsertする
+  const { error } = await supabase
+    .from('nicknames')
+    .upsert([{ owner_address: owner, target_address: target, nickname }], { onConflict: 'owner_address,target_address' });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+async function getNicknames(owner) {
+  const { data, error } = await supabase
+    .from('nicknames')
+    .select('target_address, nickname')
+    .eq('owner_address', owner);
+
+  if (error) return [];
+  return data;
+}
+
+// --- 送金リクエスト (DM機能) 処理 ---
+
+async function createPaymentRequest(requester, target, amountInternal) {
+  const { error } = await supabase
+    .from('payment_requests')
+    .insert([{ requester_address: requester, target_address: target, amount: amountInternal, status: 'pending' }]);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+async function getPaymentRequests(address) {
+  // 自分に対するリクエストを取得
+  const { data, error } = await supabase
+    .from('payment_requests')
+    .select('*')
+    .eq('target_address', address)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (error) return [];
+  return data;
+}
+
+async function markRequestPaid(requestId) {
+  const { error } = await supabase
+    .from('payment_requests')
+    .update({ status: 'paid' })
+    .eq('id', requestId);
+  return { success: !error };
+}
+
 module.exports = {
   COIN_NAME,
   COIN_SYMBOL,
@@ -189,4 +243,9 @@ module.exports = {
   initAdminAccount,
   createOnetimeLink,
   claimOnetimeLink,
+  setNickname,
+  getNicknames,
+  createPaymentRequest,
+  getPaymentRequests,
+  markRequestPaid,
 };
