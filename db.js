@@ -23,8 +23,19 @@ const REGISTRATION_BONUS_INTERNAL = REGISTRATION_BONUS * INTERNAL_MULTIPLIER;
 // --- アカウント操作 ---
 
 async function registerAccount(address, publicKey) {
-  // 1. ボーナスを常に付与するように設定（条件チェックをバイパス）
-  const bonus = REGISTRATION_BONUS_INTERNAL;
+  let bonus = REGISTRATION_BONUS_INTERNAL;
+
+  // 1. ボーナスプールの枯渇チェック (GENESISの残高を確認)
+  const { data: genesisAcc } = await supabase
+    .from('accounts')
+    .select('balance')
+    .eq('address', 'GENESIS')
+    .single();
+
+  if (!genesisAcc || genesisAcc.balance < bonus) {
+    // 枯渇時はボーナス0としてアカウント登録のみを許可
+    bonus = 0;
+  }
 
   // 2. RPCによるアトミックな登録
   const { data, error } = await supabase.rpc('register_account', {
