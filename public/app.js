@@ -344,15 +344,15 @@ async function loadHistory() {
         const name = (addr === 'GENESIS') ? '管理(GENESIS)' : (nicknamesCache[addr] || addr.slice(0, 10) + '...');
         
         let dateStr = '';
-        if (tx.created_at) {
-          const d = new Date(tx.created_at);
-          dateStr = d.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        if (tx.timestamp) {
+          const d = new Date(tx.timestamp);
+          dateStr = d.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         }
 
         return `
           <div class="history-item">
             <div>
-              <div style="font-weight:700;">${tx.type === 'transfer' ? (isSent ? '送金' : '受取') : '配付'} <span style="font-size:0.6rem;font-weight:normal;opacity:0.6;margin-left:5px;">${dateStr}</span></div>
+              <div style="font-weight:700;">${tx.type === 'transfer' ? (isSent ? '送金' : '受取') : '配付'} <span style="font-size:0.6rem;font-weight:normal;color:#aaa;margin-left:5px;">${dateStr}</span></div>
               <div style="font-size:0.6rem; margin-top:2px; opacity:0.9;">相手: <span style="font-weight:bold;">${name}</span> <span style="font-size:0.5rem; opacity:0.6">(${addr.slice(0, 6)}...)</span></div>
             </div>
             <div style="font-weight:800;">${sign}${tx.amountDisplay}</div>
