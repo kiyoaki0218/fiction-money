@@ -66,21 +66,17 @@
         </div>
         <div class="form-group">
           <label>宛先アドレス</label>
-          <input type="text" id="send-to" placeholder="相手のアドレス">
+          <input type="text" id="send-to" placeholder="相手のアドレス（ギフト作成時は空欄でOK）">
         </div>
         <div class="form-group">
           <label>金額 (KC)</label>
           <input type="number" id="send-amount" step="0.00001" placeholder="0.00000">
         </div>
-        <div class="form-group" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="send-gamble" style="width: auto; margin: 0;">
-          <label for="send-gamble" style="font-size: 0.65rem; margin: 0;">1KCを賭けてミニマルハイローに挑戦（勝率50%）</label>
-        </div>
-        <button class="btn" onclick="app.generateSendURL()">送金URLを生成</button>
-        <button class="btn btn-secondary" onclick="app.directSend()">直接送金</button>
+        <button class="btn" onclick="app.directSend()">直接送金</button>
+        <button class="btn btn-secondary" style="margin-top: 10px;" onclick="app.generateOnetimeURL()">🎁 ギフトURL作成 (先着1名・宛先不要)</button>
 
         <div id="url-result" class="hidden" style="margin-top: 15px;">
-          <label style="font-size: 0.7rem;">生成された送金URL</label>
+          <label style="font-size: 0.7rem;">ワンタイムギフトURL</label>
           <div id="send-qrcode" style="margin: 10px 0; text-align: center;"></div>
           <textarea id="generated-url" readonly rows="3"></textarea>
           <button class="btn btn-sm" onclick="app.copyToClipboard('generated-url')">URLをコピー</button>
@@ -92,10 +88,12 @@
           <h2>受取アドレス</h2>
           <span onclick="app.togglePanel('panel-receive')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
         </div>
-        <p style="font-size: 0.7rem; margin-bottom: 5px;">このアドレスを共有してください:</p>
+        <p style="font-size: 0.7rem; margin-bottom: 5px;">このQR・URLを送信者に提示してください:</p>
         <div id="receive-qrcode" style="margin: 15px 0; text-align: center;"></div>
+        <textarea id="receive-url" readonly rows="2" style="font-size: 0.65rem; margin-bottom: 5px;"></textarea>
+        <button class="btn btn-sm" onclick="app.copyToClipboard('receive-url')" style="margin-bottom: 10px;">URLをコピー</button>
         <div id="wallet-address-full" class="address-box" style="display: block; margin-bottom: 10px;">---</div>
-        <button class="btn btn-sm" onclick="app.copyToClipboardText(app.wallet.address)">アドレスをコピー</button>
+        <button class="btn btn-sm btn-secondary" onclick="app.copyToClipboardText(app.wallet.address)">アドレスのみコピー</button>
       </div>
 
       <div id="panel-history" class="panel hidden">

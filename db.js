@@ -123,25 +123,6 @@ async function getCoinInfo() {
 
 // --- Genesis: 管理者アカウントの初期化 ---
 
-async function adjustBalance(address, amountInternal, type = 'gamble') {
-  // ギャンブルの結果として残高を調整する（RPCを使用）
-  const { data, error } = await supabase.rpc('adjust_balance', {
-    p_address: address,
-    p_amount: amountInternal,
-    p_type: type
-  });
-
-  if (error || !data.success) {
-    return { success: false, error: (error ? error.message : data.error) || '残高調整に失敗しました' };
-  }
-
-  return {
-    success: true,
-    address,
-    amount: amountInternal / INTERNAL_MULTIPLIER,
-  };
-}
-
 async function initAdminAccount(address, publicKey) {
   const adminBalance = Math.floor(TOTAL_SUPPLY_INTERNAL * ADMIN_RATIO);
 
@@ -164,6 +145,33 @@ async function initAdminAccount(address, publicKey) {
   };
 }
 
+// --- ワンタイムURL (Push型) 処理 ---
+
+async function createOnetimeLink(fromAddr, amountInternal, nonce, signature) {
+  const { data, error } = await supabase
+    .from('onetime_links')
+    .insert([{ sender_address: fromAddr, amount: amountInternal, nonce, signature, status: 'active' }])
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    return { success: false, error: error ? error.message : 'リンクの発行に失敗しました' };
+  }
+  return { success: true, linkId: data.id };
+}
+
+async function claimOnetimeLink(linkId, receiverAddr) {
+  const { data, error } = await supabase.rpc('claim_onetime_link', {
+    p_link_id: linkId,
+    p_receiver_address: receiverAddr
+  });
+
+  if (error || !data.success) {
+    return { success: false, error: (error ? error.message : data.error) || '受取に失敗しました' };
+  }
+  return { success: true, link: data };
+}
+
 module.exports = {
   COIN_NAME,
   COIN_SYMBOL,
@@ -179,5 +187,6 @@ module.exports = {
   getTransactions,
   getCoinInfo,
   initAdminAccount,
-  adjustBalance,
+  createOnetimeLink,
+  claimOnetimeLink,
 };

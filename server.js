@@ -137,83 +137,77 @@ app.post('/api/send', async (req, res) => {
       return res.status(400).json(result);
     }
 
-    // --- ミニマルハイロー処理 ---
-    let gambleResult = null;
-    if (req.body.gamble) {
-      const win = Math.random() < 0.5;
-      const gambleAmount = 1 * db.INTERNAL_MULTIPLIER;
-      
-      const adj = await db.adjustBalance(from, win ? gambleAmount : -gambleAmount, win ? 'gamble_win' : 'gamble_loss');
-      if (adj.success) {
-        gambleResult = win ? 'win' : 'loss';
-      }
-    }
-
     res.json({
       ...result,
-      gambleResult,
-      message: `${result.amount} ${db.COIN_SYMBOL} を送金しました` + 
-        (gambleResult === 'win' ? '（ミニマルハイロー当選！1KC獲得）' : 
-         gambleResult === 'loss' ? '（ミニマルハイローはハズレでした）' : ''),
+      message: `${result.amount} ${db.COIN_SYMBOL} を送金しました`,
     });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// URL経由の送金処理
-app.get('/api/process-send', async (req, res) => {
+// ワンタイムURL用リンクの作成 (Push型)
+app.post('/api/onetime-link/create', async (req, res) => {
   try {
-    const { from, to, amount, nonce, sig, pub } = req.query;
-
-    if (!from || !to || !amount || !nonce || !sig || !pub) {
-      return res.status(400).json({ success: false, error: '不正な送金URLです' });
+    const { from, amount, nonce, signature, publicKey } = req.body;
+    if (!from || !amount || nonce === undefined || !signature || !publicKey) {
+      return res.status(400).json({ success: false, error: '必要なパラメータが不足しています' });
     }
 
-    const publicKey = decodeURIComponent(pub);
-    const signature = decodeURIComponent(sig);
-
-    // 公開鍵からアドレスを導出して送信者の検証
     const derivedAddress = addressFromPublicKey(publicKey);
     if (derivedAddress !== from) {
-      return res.status(403).json({ success: false, error: '公開鍵と送信者アドレスが一致しません' });
+      return res.status(403).json({ success: false, error: '公開鍵が不正です' });
     }
 
-    // 署名検証
-    const message = `${from}:${to}:${amount}:${nonce}`;
+    // ONETIME という専用のダミー宛先で署名検証を行う
+    const message = `${from}:ONETIME:${amount}:${nonce}`;
     if (!verifySignature(message, signature, publicKey)) {
       return res.status(403).json({ success: false, error: '署名の検証に失敗しました' });
     }
 
-    const amountNum = parseFloat(amount);
-    const amountInternal = Math.round(amountNum * db.INTERNAL_MULTIPLIER);
+    const amountInternal = Math.round(parseFloat(amount) * db.INTERNAL_MULTIPLIER);
+    const result = await db.createOnetimeLink(from, amountInternal, nonce, signature);
+    
+    if (!result.success) {
+      return res.status(500).json(result);
+    }
+    
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ワンタイムURLの受取・送金実行
+app.post('/api/onetime-link/receive', async (req, res) => {
+  try {
+    const { linkId, receiver } = req.body;
+    if (!linkId || !receiver) {
+      return res.status(400).json({ success: false, error: 'リンクIDまたは受取アドレスが不足しています' });
+    }
+
+    // リンクの取得と状態更新 (使用済みにする)
+    const claimResult = await db.claimOnetimeLink(linkId, receiver);
+    if (!claimResult.success) {
+      return res.status(400).json(claimResult);
+    }
+    const link = claimResult.link;
+
     const crypto = require('crypto');
+    // ONETIMEとして署名されたデータを元に、実際の受取人アドレスを組み込んでtxIdを生成（ログ用）
     const txId = crypto.createHash('sha256')
-      .update(`${from}:${to}:${amountInternal}:${nonce}:${signature}`)
+      .update(`${link.sender_address}:${receiver}:${link.amount}:${link.nonce}:${link.signature}`)
       .digest('hex').slice(0, 16);
 
-    const result = await db.processTransfer(from, to, amountInternal, parseInt(nonce), signature, txId);
-    if (!result.success) {
-      return res.status(400).json(result);
+    // 実際の送金処理を実行
+    const transResult = await db.processTransfer(link.sender_address, receiver, link.amount, link.nonce, link.signature, txId);
+    
+    if (!transResult.success) {
+      // リンクは消費されたが送金が失敗した場合（残高不足等）
+      return res.status(400).json({ success: false, error: '送金に失敗しました。送信者の残高が不足している可能性があります。' });
     }
 
-    // --- ミニマルハイロー処理 (URL経由) ---
-    let gambleResult = null;
-    if (req.query.gamble === '1') {
-      const win = Math.random() < 0.5;
-      const gambleAmount = 1 * db.INTERNAL_MULTIPLIER;
-      const adj = await db.adjustBalance(from, win ? gambleAmount : -gambleAmount, win ? 'gamble_win' : 'gamble_loss');
-      if (adj.success) {
-        gambleResult = win ? 'win' : 'loss';
-      }
-    }
-
-    // URLアクセスの場合はメインページにリダイレクト（結果パラメータ付き）
-    let redirectUrl = `/?tx_success=1&tx_id=${txId}&tx_amount=${amountNum}&tx_from=${from.slice(0, 8)}`;
-    if (gambleResult) {
-      redirectUrl += `&gamble_res=${gambleResult}`;
-    }
-    res.redirect(redirectUrl);
+    res.json({ success: true, amount: transResult.amount });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }

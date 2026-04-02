@@ -89,37 +89,60 @@ window.app = {
       if (id === 'panel-history') loadHistory();
       if (id === 'panel-receive') {
         document.getElementById('wallet-address-full').textContent = app.wallet.address;
-        generateQRCode(app.wallet.address, 'receive-qrcode');
+        const payUrl = `${window.location.origin}/?pay_to=${app.wallet.address}`;
+        document.getElementById('receive-url').value = payUrl;
+        generateQRCode(payUrl, 'receive-qrcode');
       }
     }
   },
 
-  generateSendURL: async () => {
-    const to = document.getElementById('send-to').value.trim();
+  generateOnetimeURL: async () => {
     const amountStr = document.getElementById('send-amount').value;
     const amount = parseFloat(amountStr);
-    if (!to || !amount) return toast('入力が不足しています', 'error');
+    if (!amount) return toast('金額を入力してください', 'error');
 
-    const gamble = document.getElementById('send-gamble').checked;
-    
-    const params = new URLSearchParams({
-      from: app.wallet.address, to, amount: String(amount), nonce: String(nonce),
-      sig: signature, pub: app.wallet.publicKey
-    });
-    if (gamble) params.append('gamble', '1');
-    
-    const url = `${window.location.origin}/api/process-send?${params.toString()}`;
-    document.getElementById('generated-url').value = url;
-    document.getElementById('url-result').classList.remove('hidden');
-    generateQRCode(url, 'send-qrcode');
-    toast('URLを生成しました', 'success');
+    const nonce = await fetchNonce() + 1;
+    const message = `${app.wallet.address}:ONETIME:${amount}:${nonce}`;
+    const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+    const msgBytes = nacl.util.decodeUTF8(message);
+    const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+    const signature = nacl.util.encodeBase64(sigBytes);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/onetime-link/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: app.wallet.address, amount, nonce, signature, publicKey: app.wallet.publicKey
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const url = `${window.location.origin}/?receive_link=${data.linkId}`;
+        document.getElementById('generated-url').value = url;
+        document.getElementById('url-result').classList.remove('hidden');
+        generateQRCode(url, 'send-qrcode');
+        toast('ギフトURLを作成しました', 'success');
+      } else {
+        toast(data.error || 'エラー発生', 'error');
+      }
+    } catch (e) {
+      toast('通信エラー', 'error');
+    }
   },
 
   directSend: async () => {
     const to = document.getElementById('send-to').value.trim();
     const amountStr = document.getElementById('send-amount').value;
     const amount = parseFloat(amountStr);
-    const gamble = document.getElementById('send-gamble').checked;
+    if (!to || !amount) return toast('入力が不足しています', 'error');
+
+    const nonce = await fetchNonce() + 1;
+    const message = `${app.wallet.address}:${to}:${amount}:${nonce}`;
+    const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+    const msgBytes = nacl.util.decodeUTF8(message);
+    const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+    const signature = nacl.util.encodeBase64(sigBytes);
     
     try {
       const res = await fetch(`${API_BASE}/api/send`, {
@@ -127,19 +150,17 @@ window.app = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           from: app.wallet.address, to, amount, nonce, signature, 
-          publicKey: app.wallet.publicKey, gamble 
+          publicKey: app.wallet.publicKey 
         })
       });
       const data = await res.json();
       if (data.success) {
-        if (data.gambleResult === 'win') {
-          toast('送金完了！...さらにミニマルハイローで 1KC 当選しました！', 'success');
-        } else if (data.gambleResult === 'loss') {
-          toast('送金完了（ミニマルハイローはハズレでした）', 'info');
-        } else {
-          toast('送金完了', 'success');
-        }
+        toast('送金完了', 'success');
         app.togglePanel('panel-send');
+        // 入力をクリア
+        document.getElementById('send-to').value = '';
+        document.getElementById('send-amount').value = '';
+        document.getElementById('url-result').classList.add('hidden');
         updateBalance();
       } else {
         toast(data.error || 'エラー発生', 'error');
@@ -321,22 +342,58 @@ function checkUrlParams() {
     inviteInput.value = invite;
   }
 
+  // ウォレット登録・ログインが必要な処理（pay_to / receive_link）
+  if (app.wallet) {
+    const payTo = params.get('pay_to');
+    if (payTo) {
+      app.togglePanel('panel-send');
+      document.getElementById('send-to').value = payTo;
+      document.getElementById('send-amount').focus();
+      toast('支払先アドレスがセットされました', 'info');
+      // パラメータを消去
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    const receiveLink = params.get('receive_link');
+    if (receiveLink) {
+      processOnetimeLink(receiveLink);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }
+
+  // 古い送金方式の成功時表示ロジック（互換性担保または削除可能）
   if (params.get('tx_success') === '1') {
     const amount = params.get('tx_amount');
     const msgEl = document.getElementById('send-received-msg');
     if (msgEl) msgEl.textContent = `${amount} KC を受け取りました。`;
     showModal('modal-send-received');
-    
-    // ギャンブル結果の表示
-    const gambleRes = params.get('gamble_res');
-    if (gambleRes === 'win') {
-      setTimeout(() => toast('ミニマルハイローに挑戦し、1KC獲得しました！', 'success'), 1000);
-    } else if (gambleRes === 'loss') {
-      setTimeout(() => toast('ミニマルハイローの結果はハズレでした', 'info'), 1000);
-    }
 
     updateBalance();
     window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
+async function processOnetimeLink(linkId) {
+  try {
+    const res = await fetch(`${API_BASE}/api/onetime-link/receive`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        linkId,
+        receiver: app.wallet.address
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const msgEl = document.getElementById('send-received-msg');
+      if (msgEl) msgEl.textContent = `${data.amount} KC をギフトリンクから受け取りました！`;
+      showModal('modal-send-received');
+      updateBalance();
+    } else {
+      toast(data.error || 'リンクの受取に失敗しました', 'error');
+    }
+  } catch (e) {
+    toast('通信エラー', 'error');
   }
 }
 
