@@ -530,12 +530,10 @@ app.prepareDirectSendFromDM = () => {
 
 app.sendPaymentRequest = async () => {
   const target = document.getElementById('dm-action-addr').textContent;
-  const amountStr = prompt('請求する金額を入力してください (空欄の場合は相手が決めることができます)');
-  if (amountStr === null) return;
-  const amount = amountStr ? parseFloat(amountStr) : null;
-  if (amountStr && isNaN(amount)) return toast('無効な金額です', 'error');
+  // 金額入力プロンプトを削除し、常に NULL (相手に任せる) で送信
+  const amount = null;
 
-  const messageStr = amount ? amount.toString() : '0';
+  const messageStr = '0'; // amount が null の場合は '0' をシグナルとする
   const message = `${app.wallet.address}:REQUEST:${target}:${messageStr}`;
   const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
   const msgBytes = nacl.util.decodeUTF8(message);
@@ -552,10 +550,10 @@ app.sendPaymentRequest = async () => {
     });
     const data = await res.json();
     if (data.success) {
-      toast('リクエストを送信しました', 'success');
+      toast('送金のお願いを送信しました', 'success');
       app.hideModal('modal-dm-action');
     } else {
-      toast('リクエストの送信に失敗しました', 'error');
+      toast('送信に失敗しました', 'error');
     }
   } catch (e) {
     toast('通信エラー', 'error');
@@ -647,12 +645,12 @@ async function loadRequests() {
       listEl.innerHTML = '<h3 style="font-size: 0.7rem; color: #ff6b6b; margin-bottom: 5px;">🔥 あなたへの送金リクエスト</h3>' +
         data.requests.map(r => {
           const name = nicknamesCache[r.requester_address] || r.requester_address.slice(0, 8) + '...';
-          const amtStr = r.amountDisplay ? `${r.amountDisplay} KC` : '金額指定なし';
+          const amtStr = r.amountDisplay ? `${r.amountDisplay} KC` : '金額はお任せ';
           return `
             <div class="history-item" style="border: 1px dashed #ff6b6b; margin-bottom: 5px;">
               <div>
-                <div style="font-weight:700;">${name} からのリクエスト</div>
-                <div style="font-weight:800;">${amtStr}</div>
+                <div style="font-weight:700;">${name} からのお願い</div>
+                <div style="font-weight:800; font-size: 0.6rem; color: #ff6b6b;">${amtStr}</div>
               </div>
               <button class="btn btn-sm" onclick="app.fulfillRequest('${r.requester_address}', '${r.amountDisplay || ''}')">支払う</button>
             </div>
