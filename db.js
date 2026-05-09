@@ -136,8 +136,8 @@ async function getTransactions(address, limit = 50) {
   // 履歴データにニックネームを付与
   return txs.map(tx => ({
     ...tx,
-    from_nickname: nameMap[tx.from_addr],
-    to_nickname: nameMap[tx.to_addr]
+    from_nickname: tx.from_addr === 'GENESIS' ? 'SYSTEM' : nameMap[tx.from_addr],
+    to_nickname: tx.to_addr === 'GENESIS' ? 'SYSTEM' : nameMap[tx.to_addr]
   }));
 }
 

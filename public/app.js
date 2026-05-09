@@ -342,7 +342,9 @@ async function loadHistory() {
         const sign = isSent ? '-' : '+';
         const addr = isSent ? tx.to_addr : tx.from_addr;
         const officialName = isSent ? tx.to_nickname : tx.from_nickname;
-        const name = (addr === 'GENESIS') ? '管理(GENESIS)' : (nicknamesCache[addr] || officialName || addr.slice(0, 10) + '...');
+        if (officialName) officialNamesCache[addr] = officialName;
+        
+        const name = officialName || nicknamesCache[addr] || addr.slice(0, 10) + '...';
         
         let dateStr = '';
         if (tx.timestamp) {
@@ -354,7 +356,7 @@ async function loadHistory() {
           <div class="history-item">
             <div>
               <div style="font-weight:700;">${tx.type === 'transfer' ? (isSent ? '送金' : '受取') : '配付'} <span style="font-size:0.6rem;font-weight:normal;color:#aaa;margin-left:5px;">${dateStr}</span></div>
-              <div style="font-size:0.6rem; margin-top:2px; opacity:0.9;">相手: <span style="font-weight:bold;">${name}</span> ${officialName ? '' : `<span style="font-size:0.5rem; opacity:0.6">(${addr.slice(0, 6)}...)</span>`}</div>
+              <div style="font-size:0.6rem; margin-top:2px; opacity:0.9;">相手: <span style="font-weight:bold;">${name}</span> ${officialNamesCache[addr] ? '' : `<span style="font-size:0.5rem; opacity:0.6">(${addr.slice(0, 6)}...)</span>`}</div>
             </div>
             <div style="font-weight:800;">${sign}${tx.amountDisplay}</div>
           </div>
@@ -487,6 +489,7 @@ function generateQRCode(text, elementId) {
 
 // --- Phase 3: DM & Nickname functions ---
 let nicknamesCache = {};
+let officialNamesCache = {};
 
 app.editNickname = async () => {
   const target = document.getElementById('dm-action-addr').textContent;
@@ -595,10 +598,8 @@ async function loadDMList() {
         const addr = isSent ? tx.to_addr : tx.from_addr;
         const offName = isSent ? tx.to_nickname : tx.from_nickname;
         
-        if (addr !== 'GENESIS') {
-            contacts.add(addr);
-            if (offName) nicknamesCache[addr] = offName;
-        }
+        contacts.add(addr);
+        if (offName) officialNamesCache[addr] = offName;
       });
     }
 
@@ -616,8 +617,8 @@ async function loadDMList() {
         return `
           <div class="history-item" style="cursor:pointer;" onclick="app.openDMAction('${addr}')">
             <div>
-              <div style="font-weight:700;">${name}</div>
-              <div style="font-size:0.5rem; opacity:0.6;">${nicknamesCache[addr] === name ? '公式アカウント' : addr.slice(0,16) + '...'}</div>
+              <div style="font-weight:700;">${officialNamesCache[addr] || nicknamesCache[addr] || addr.slice(0, 8) + '...'}</div>
+              <div style="font-size:0.5rem; opacity:0.6;">${officialNamesCache[addr] ? '公式アカウント' : addr.slice(0,16) + '...'}</div>
             </div>
             <div style="font-size:0.6rem;">&gt;</div>
           </div>
