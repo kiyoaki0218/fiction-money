@@ -341,7 +341,8 @@ async function loadHistory() {
         const isSent = tx.direction === 'sent';
         const sign = isSent ? '-' : '+';
         const addr = isSent ? tx.to_addr : tx.from_addr;
-        const name = (addr === 'GENESIS') ? '管理(GENESIS)' : (nicknamesCache[addr] || addr.slice(0, 10) + '...');
+        const officialName = isSent ? tx.to_nickname : tx.from_nickname;
+        const name = (addr === 'GENESIS') ? '管理(GENESIS)' : (nicknamesCache[addr] || officialName || addr.slice(0, 10) + '...');
         
         let dateStr = '';
         if (tx.timestamp) {

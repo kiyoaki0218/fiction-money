@@ -103,13 +103,42 @@ async function processTransfer(fromAddr, toAddr, amountInternal, nonce, signatur
 // --- 取引履歴 ---
 
 async function getTransactions(address, limit = 50) {
-  const { data } = await supabase
+  // 取引履歴を取得
+  const { data: txs, error: txError } = await supabase
     .from('transactions')
     .select('*')
     .or(`from_addr.eq.${address},to_addr.eq.${address}`)
     .order('timestamp', { ascending: false })
     .limit(limit);
-  return data || [];
+
+  if (txError || !txs) return [];
+
+  // 関連するすべてのアドレスを抽出
+  const addresses = new Set();
+  txs.forEach(tx => {
+    addresses.add(tx.from_addr);
+    addresses.add(tx.to_addr);
+  });
+
+  // アカウント情報を一括取得してニックネームをマッピング
+  const { data: accounts } = await supabase
+    .from('accounts')
+    .select('address, nickname')
+    .in('address', Array.from(addresses));
+
+  const nameMap = {};
+  if (accounts) {
+    accounts.forEach(a => {
+      nameMap[a.address] = a.nickname;
+    });
+  }
+
+  // 履歴データにニックネームを付与
+  return txs.map(tx => ({
+    ...tx,
+    from_nickname: nameMap[tx.from_addr],
+    to_nickname: nameMap[tx.to_addr]
+  }));
 }
 
 // --- 通貨情報 ---
