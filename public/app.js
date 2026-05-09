@@ -565,8 +565,11 @@ app.sendPaymentRequest = async () => {
 };
 
 app.openDMAction = (addr) => {
-  document.getElementById('dm-action-addr').textContent = addr;
-  document.getElementById('dm-action-name').textContent = nicknamesCache[addr] || addr.slice(0, 8) + '...';
+  const isOfficial = !!officialNamesCache[addr];
+  const displayName = officialNamesCache[addr] || nicknamesCache[addr] || addr.slice(0, 8) + '...';
+  
+  document.getElementById('dm-action-addr').textContent = isOfficial ? displayName : addr;
+  document.getElementById('dm-action-name').textContent = displayName;
   showModal('modal-dm-action');
 };
 
