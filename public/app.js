@@ -623,7 +623,7 @@ async function loadDMList() {
           <div class="history-item" style="cursor:pointer;" onclick="app.openDMAction('${addr}')">
             <div>
               <div style="font-weight:700;">${officialNamesCache[addr] || nicknamesCache[addr] || addr.slice(0, 8) + '...'}</div>
-              <div style="font-size:0.5rem; opacity:0.6;">${officialNamesCache[addr] ? '公式アカウント' : addr.slice(0,16) + '...'}</div>
+              <div style="font-size:0.5rem; opacity:0.6;">${officialNamesCache[addr] || addr.slice(0,16) + '...'}</div>
             </div>
             <div style="font-size:0.6rem;">&gt;</div>
           </div>
