@@ -489,7 +489,9 @@ function generateQRCode(text, elementId) {
 
 // --- Phase 3: DM & Nickname functions ---
 let nicknamesCache = {};
-let officialNamesCache = {};
+let officialNamesCache = {
+    'GENESIS': 'SYSTEM'
+};
 
 app.editNickname = async () => {
   const target = document.getElementById('dm-action-addr').textContent;
