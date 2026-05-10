@@ -660,12 +660,15 @@ async function loadRequests() {
           const name = nicknamesCache[r.requester_address] || r.requester_address.slice(0, 8) + '...';
           const amtStr = r.amountDisplay ? `${r.amountDisplay} KC` : '金額はお任せ';
           return `
-            <div class="history-item" style="border: 1px dashed #ff6b6b; margin-bottom: 5px;">
-              <div>
+            <div class="history-item" style="border: 1px dashed #ff6b6b; margin-bottom: 5px; position: relative;">
+              <div style="flex: 1;">
                 <div style="font-weight:700;">${name} からのお願い</div>
                 <div style="font-weight:800; font-size: 0.6rem; color: #ff6b6b;">${amtStr}</div>
               </div>
-              <button class="btn btn-sm" onclick="app.fulfillRequest('${r.requester_address}', '${r.amountDisplay || ''}')">支払う</button>
+              <div style="display: flex; gap: 5px; align-items: center;">
+                <button class="btn btn-sm" style="margin-bottom: 0;" onclick="app.fulfillRequest('${r.requester_address}', '${r.amountDisplay || ''}')">支払う</button>
+                <button class="btn btn-sm" style="background: transparent; color: #ff6b6b; border: 1px solid #ff6b6b; padding: 2px 8px; width: auto; margin-bottom: 0; font-weight: bold;" onclick="app.discardRequest('${r.id}')">×</button>
+              </div>
             </div>
           `;
         }).join('');
@@ -681,5 +684,32 @@ app.fulfillRequest = (requester, amount) => {
   } else {
     document.getElementById('send-amount').value = '';
     document.getElementById('send-amount').focus();
+  }
+};
+
+app.discardRequest = async (requestId) => {
+  if (!confirm('この送金リクエストを破棄しますか？')) return;
+
+  const message = `${requestId}:DISCARD`;
+  const secretKeyBytes = nacl.util.decodeBase64(app.wallet.secretKey);
+  const msgBytes = nacl.util.decodeUTF8(message);
+  const sigBytes = nacl.sign.detached(msgBytes, secretKeyBytes);
+  const signature = nacl.util.encodeBase64(sigBytes);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/requests/discard`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId, signature, publicKey: app.wallet.publicKey })
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast('リクエストを破棄しました', 'success');
+      loadRequests();
+    } else {
+      toast('破棄に失敗しました', 'error');
+    }
+  } catch (e) {
+    toast('通信エラー', 'error');
   }
 };

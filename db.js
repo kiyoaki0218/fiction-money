@@ -266,6 +266,15 @@ async function markRequestPaid(requestId) {
   return { success: !error };
 }
 
+async function discardPaymentRequest(requestId, targetAddress) {
+  const { error } = await supabase
+    .from('payment_requests')
+    .update({ status: 'discarded' })
+    .eq('id', requestId)
+    .eq('target_address', targetAddress);
+  return { success: !error };
+}
+
 module.exports = {
   COIN_NAME,
   COIN_SYMBOL,
@@ -288,4 +297,5 @@ module.exports = {
   createPaymentRequest,
   getPaymentRequests,
   markRequestPaid,
+  discardPaymentRequest,
 };

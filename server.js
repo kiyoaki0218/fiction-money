@@ -342,6 +342,20 @@ app.post('/api/requests/list', async (req, res) => {
   }
 });
 
+app.post('/api/requests/discard', async (req, res) => {
+  try {
+    const { requestId, signature, publicKey } = req.body;
+    if (!verifySignature(`${requestId}:DISCARD`, signature, publicKey)) {
+      return res.status(403).json({ success: false, error: '署名が無効です' });
+    }
+    const targetAddress = addressFromPublicKey(publicKey);
+    const result = await db.discardPaymentRequest(requestId, targetAddress);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // 管理者: Genesis（初回のみ）
 app.post('/api/admin/genesis', async (req, res) => {
   try {
