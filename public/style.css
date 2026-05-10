@@ -186,6 +186,14 @@ input, textarea {
   max-width: 350px;
 }
 
+#history-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  padding: 0 10px;
+  margin-top: 10px;
+}
+
 .history-item {
   border-bottom: 1px solid var(--color-border);
   padding: 5px 0;

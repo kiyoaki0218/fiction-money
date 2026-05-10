@@ -102,7 +102,7 @@ async function processTransfer(fromAddr, toAddr, amountInternal, nonce, signatur
 
 // --- 取引履歴 ---
 
-async function getTransactions(address, limit = 50) {
+async function getTransactions(address, limit = 1000) {
   // 取引履歴を取得
   const { data: txs, error: txError } = await supabase
     .from('transactions')

@@ -257,7 +257,7 @@ app.get('/api/process-send', async (req, res) => {
 // 取引履歴
 app.get('/api/transactions/:address', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = parseInt(req.query.limit) || 1000;
     const txs = await db.getTransactions(req.params.address, limit);
 
     const formatted = txs.map(tx => ({
