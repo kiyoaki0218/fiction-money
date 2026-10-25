@@ -689,7 +689,17 @@ app.get('/api/account/:address', async (req, res) => {
 // SPA対応: 全未マッチルートでindex.htmlを返す
 app.get('/{*splat}', (req, res) => {
   if (req.path.match(/\.\w+$/)) {
-    return res.status(404).end();
+    // --- TEMP PROBE: Vercel rewrite が関数へ渡すパスの実物を確認 ---
+    return res.status(404).type('application/json').send(JSON.stringify({
+      probe: true,
+      path: req.path,
+      url: req.url,
+      originalUrl: req.originalUrl,
+      matched: req.headers['x-matched-path'] || null,
+      invokePath: req.headers['x-invoke-path'] || null,
+      nowRoute: req.headers['x-now-route-matches'] || null,
+      headers: Object.keys(req.headers),
+    }));
   }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
