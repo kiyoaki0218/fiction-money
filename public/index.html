@@ -10,7 +10,7 @@
 
 <body class="light-theme">
 
-  <div class="theme-toggle" onclick="app.toggleTheme()">THEME</div>
+  <div class="theme-toggle" data-act="toggleTheme">THEME</div>
 
   <div class="container">
     <h1>KC — クレクレコイン</h1>
@@ -23,8 +23,8 @@
           <label>招待パスワード</label>
           <input type="text" id="invite-code" placeholder="招待パスワードを入力">
         </div>
-        <button class="btn" onclick="app.createNewWallet()">新しいウォレットを作成</button>
-        <button class="btn btn-secondary" onclick="app.showRestoreView()">秘密鍵で復元</button>
+        <button class="btn" data-act="createNewWallet">新しいウォレットを作成</button>
+        <button class="btn btn-secondary" data-act="showRestoreView">復元 / 再ログイン</button>
       </div>
     </div>
 
@@ -33,11 +33,110 @@
       <div class="card">
         <h2>復元</h2>
         <div class="form-group">
+          <label>復元方法</label>
+          <select id="restore-mode">
+            <option value="mnemonic">ニーモニック（12/24単語）</option>
+            <option value="legacy">旧秘密鍵（Base64）</option>
+          </select>
+        </div>
+        <div class="form-group" id="restore-mnemonic-group">
+          <label>ニーモニックを入力</label>
+          <textarea id="restore-phrase" rows="3" placeholder="word1 word2 ... word12"></textarea>
+        </div>
+        <div class="form-group hidden" id="restore-legacy-group">
           <label>秘密鍵を入力</label>
           <textarea id="restore-key" rows="3" placeholder="Base64形式の鍵を入力"></textarea>
         </div>
-        <button class="btn" onclick="app.restoreWallet()">復元する</button>
-        <button class="btn btn-secondary" onclick="app.showWelcomeView()">戻る</button>
+        <div class="form-group">
+          <label>この端末用パスワード（8文字以上）</label>
+          <input type="password" id="restore-password" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label>パスワード（確認）</label>
+          <input type="password" id="restore-password2" autocomplete="new-password">
+        </div>
+        <button class="btn" data-act="restoreWallet">復元する</button>
+        <button class="btn btn-secondary" data-act="showWelcomeView">戻る</button>
+      </div>
+    </div>
+
+    <!-- Create View: パスワード → ニーモニック → 3語確認 -->
+    <div id="view-create" class="view">
+      <div class="card">
+        <h2>新しいウォレット</h2>
+
+        <!-- Step 1: パスワード -->
+        <div id="create-step-password">
+          <p class="hint" style="margin-bottom: 10px;">パスワードはこの端末に鍵を暗号化して保存するためのものです。忘れてもニーモニックから復元できます。</p>
+          <div class="form-group">
+            <label>パスワード（8文字以上）</label>
+            <input type="password" id="create-password" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label>パスワード（確認）</label>
+            <input type="password" id="create-password2" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label>バックアップ単語数</label>
+            <select id="create-bits">
+              <option value="128">12単語（推奨）</option>
+              <option value="256">24単語</option>
+            </select>
+          </div>
+          <button class="btn" data-act="createNextToPhrase" id="btn-create-next">フレーズを発行</button>
+          <button class="btn btn-secondary" data-act="showWelcomeView">戻る</button>
+        </div>
+
+        <!-- Step 2: ニーモニック表示 -->
+        <div id="create-step-phrase" class="hidden">
+          <p class="warning" style="margin-bottom: 10px;">これが唯一のバックアップです。紙に書いて安全な場所に保管してください。紛失すると資産は復元できません。</p>
+          <div id="mnemonic-words" class="mnemonic-grid"></div>
+          <div class="form-group" style="margin-top: 10px;">
+            <label><input type="checkbox" id="mnemonic-ack" style="width: auto; display: inline;"> 単語を書き残しました</label>
+          </div>
+          <button class="btn" data-act="confirmPhraseAck">単語の確認へ</button>
+        </div>
+
+        <!-- Step 3: 3語確認 -->
+        <div id="create-step-confirm" class="hidden">
+          <p class="hint" style="margin-bottom: 10px;">書き残したフレーズを確認するため、指定の単語を入力してください。</p>
+          <div id="confirm-word-inputs"></div>
+          <button class="btn" data-act="finishCreateWallet" id="btn-create-finish">作成して登録</button>
+          <button class="btn btn-secondary" data-act="showWelcomeView">やめる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Migrate View: 既存の平文鍵をパスワード暗号化へ移行 -->
+    <div id="view-migrate" class="view">
+      <div class="card">
+        <h2>パスワードの設定</h2>
+        <p class="hint" style="margin-bottom: 10px;">安全性向上のため、保存済みの秘密鍵をパスワードで暗号化して保存し直します（初回のみの手続き）。</p>
+        <p class="hint" id="migrate-address" style="margin-bottom: 10px; word-break: break-all;"></p>
+        <div class="form-group">
+          <label>パスワード（8文字以上）</label>
+          <input type="password" id="migrate-password" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label>パスワード（確認）</label>
+          <input type="password" id="migrate-password2" autocomplete="new-password">
+        </div>
+        <button class="btn" data-act="migrateWallet" id="btn-migrate">暗号化して続行</button>
+      </div>
+    </div>
+
+    <!-- Lock View -->
+    <div id="view-lock" class="view">
+      <div class="card" style="text-align: center;">
+        <h2>ロック中</h2>
+        <p class="hint" id="lock-address" style="margin-bottom: 10px; word-break: break-all;"></p>
+        <div class="form-group">
+          <label>パスワード</label>
+          <input type="password" id="lock-password" autocomplete="current-password" placeholder="パスワードを入力">
+        </div>
+        <button class="btn" data-act="unlock" id="btn-unlock">ロック解除</button>
+        <p class="hint" id="lock-hint" style="margin-top: 8px; min-height: 1em;"></p>
+        <button class="btn btn-sm btn-secondary" data-act="logout" style="margin-top: 10px;">ログアウト</button>
       </div>
     </div>
 
@@ -53,17 +152,18 @@
       </div>
 
       <div class="btn-group">
-        <button class="btn" onclick="app.togglePanel('panel-send')">送金</button>
-        <button class="btn" onclick="app.togglePanel('panel-receive')">受取</button>
-        <button class="btn" onclick="app.togglePanel('panel-history')">履歴</button>
-        <button class="btn" onclick="app.togglePanel('panel-dm')">連絡先(DM)</button>
+        <button class="btn" data-act="togglePanel" data-a1="panel-send">送金</button>
+        <button class="btn" data-act="togglePanel" data-a1="panel-receive">受取</button>
+        <button class="btn" data-act="togglePanel" data-a1="panel-history">履歴</button>
+        <button class="btn" data-act="togglePanel" data-a1="panel-dm">連絡先(DM)</button>
+        <button class="btn" data-act="togglePanel" data-a1="panel-split">割り勘</button>
       </div>
 
       <!-- Panels -->
       <div id="panel-send" class="panel hidden">
         <div class="panel-header">
           <h2>送金</h2>
-          <span onclick="app.togglePanel('panel-send')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+          <span data-act="togglePanel" data-a1="panel-send" style="cursor:pointer; font-size:0.8rem;">[×]</span>
         </div>
         <div class="form-group">
           <label>宛先アドレス</label>
@@ -73,34 +173,36 @@
           <label>金額 (KC)</label>
           <input type="number" id="send-amount" step="0.00001" placeholder="0.00000">
         </div>
-        <button class="btn" onclick="app.directSend()">直接送金</button>
-        <button class="btn btn-secondary" style="margin-top: 10px;" onclick="app.generateSendURL()">送金URLを生成</button>
+        <button class="btn" data-act="directSend">送金する（確認画面へ）</button>
+        <button class="btn btn-secondary" style="margin-top: 10px;" data-act="generateSendURL">送金URLを生成</button>
+        <button class="btn btn-secondary" style="margin-top: 10px;" data-act="startScan">📷 カメラで読み取る</button>
 
         <div id="url-result" class="hidden" style="margin-top: 15px;">
           <label style="font-size: 0.7rem;">送金URL</label>
           <div id="send-qrcode" style="margin: 10px 0; text-align: center;"></div>
           <textarea id="generated-url" readonly rows="3"></textarea>
-          <button class="btn btn-sm" onclick="app.copyToClipboard('generated-url')">URLをコピー</button>
+          <button class="btn btn-sm" data-act="copyToClipboard" data-a1="generated-url">URLをコピー</button>
         </div>
       </div>
 
       <div id="panel-receive" class="panel hidden">
         <div class="panel-header">
           <h2>受取アドレス</h2>
-          <span onclick="app.togglePanel('panel-receive')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+          <span data-act="togglePanel" data-a1="panel-receive" style="cursor:pointer; font-size:0.8rem;">[×]</span>
         </div>
         <p style="font-size: 0.7rem; margin-bottom: 5px;">このQR・URLを送信者に提示してください:</p>
         <div id="receive-qrcode" style="margin: 15px 0; text-align: center;"></div>
         <textarea id="receive-url" readonly rows="2" style="font-size: 0.65rem; margin-bottom: 5px;"></textarea>
-        <button class="btn btn-sm" onclick="app.copyToClipboard('receive-url')" style="margin-bottom: 10px;">URLをコピー</button>
+        <button class="btn btn-sm" data-act="copyToClipboard" data-a1="receive-url" style="margin-bottom: 10px;">URLをコピー</button>
+        <button class="btn btn-sm btn-secondary" data-act="startScan" style="margin-bottom: 10px;">📷 受取用QRを読み取る</button>
         <div id="wallet-address-full" class="address-box" style="display: block; margin-bottom: 10px;">---</div>
-        <button class="btn btn-sm btn-secondary" onclick="app.copyToClipboardText(app.wallet.address)">アドレスのみコピー</button>
+        <button class="btn btn-sm btn-secondary" data-act="copyMyAddress">アドレスのみコピー</button>
       </div>
 
       <div id="panel-history" class="panel hidden">
         <div class="panel-header">
           <h2>履歴</h2>
-          <span onclick="app.togglePanel('panel-history')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+          <span data-act="togglePanel" data-a1="panel-history" style="cursor:pointer; font-size:0.8rem;">[×]</span>
         </div>
         <div id="history-list">
           <p style="text-align: center; color: #999; padding: 10px; font-size: 0.7rem;">履歴はありません</p>
@@ -110,20 +212,71 @@
       <div id="panel-dm" class="panel hidden">
         <div class="panel-header">
           <h2>連絡先</h2>
-          <span onclick="app.togglePanel('panel-dm')" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+          <span data-act="togglePanel" data-a1="panel-dm" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+        </div>
+        <div class="tab-group">
+          <button class="tab active" id="tab-requests-incoming" data-act="setRequestTab" data-a1="incoming">受け取ったお願い</button>
+          <button class="tab" id="tab-requests-sent" data-act="setRequestTab" data-a1="sent">送ったお願い</button>
         </div>
         <div id="requests-list" style="margin-bottom: 15px;"></div>
+        <div id="sent-requests-list" class="hidden" style="margin-bottom: 15px;"></div>
         <div id="dm-list">
           <p style="text-align: center; color: #999; padding: 10px; font-size: 0.7rem;">履歴情報はありません</p>
         </div>
       </div>
 
+      <!-- 割り勘（グループ集金） -->
+      <div id="panel-split" class="panel hidden">
+        <div class="panel-header">
+          <h2>割り勘（集金リンク）</h2>
+          <span data-act="togglePanel" data-a1="panel-split" style="cursor:pointer; font-size:0.8rem;">[×]</span>
+        </div>
+        <div class="form-group">
+          <label>タイトル</label>
+          <input type="text" id="split-title" maxlength="40" placeholder="例: 飲み会代">
+        </div>
+        <div class="form-group">
+          <label>集金方式</label>
+          <select id="split-mode">
+            <option value="equal">合計金額 ÷ 人数</option>
+            <option value="fixed">1人あたり固定</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label id="split-amount-label">合計金額 (KC)</label>
+          <input type="number" id="split-amount" step="0.00001" min="0" placeholder="0.00000">
+        </div>
+        <div class="form-group">
+          <label>人数</label>
+          <input type="number" id="split-count" min="2" max="100" value="2">
+        </div>
+        <p class="hint" style="margin-bottom: 10px;">合計÷人数の端数は作成者が負担します。参加者は下のリンクから支払います。</p>
+        <button class="btn" data-act="createSplit" id="btn-create-split">集金リンクを作成</button>
+
+        <div id="split-result" class="hidden" style="margin-top: 15px;">
+          <label style="font-size: 0.7rem;">集金リンク（QRを表示して共有）</label>
+          <div id="split-qrcode" style="margin: 10px 0; text-align: center;"></div>
+          <textarea id="split-url" readonly rows="3"></textarea>
+          <button class="btn btn-sm" data-act="copyToClipboard" data-a1="split-url">URLをコピー</button>
+        </div>
+      </div>
+
       <!-- Footer Management -->
       <div style="margin-top: 30px; text-align: center;">
-        <button class="btn btn-sm btn-secondary" onclick="app.exportKey()">秘密鍵のエクスポート</button>
-        <button class="btn btn-sm btn-secondary" onclick="app.logout()">ログアウト</button>
+        <button class="btn btn-sm btn-secondary" data-act="lockNow">今すぐロック</button>
+        <button class="btn btn-sm btn-secondary" data-act="exportKey">秘密鍵のエクスポート</button>
+        <button class="btn btn-sm btn-secondary" data-act="logout">ログアウト</button>
+        <div class="form-group" style="margin-top: 8px;">
+          <label style="text-align: left;">自動ロック（無操作）</label>
+          <select id="autolock-setting" data-autolock>
+            <option value="1">1分</option>
+            <option value="5">5分</option>
+            <option value="15">15分</option>
+            <option value="0">オフ</option>
+          </select>
+        </div>
         <button class="btn btn-sm btn-secondary" id="btn-admin-genesis" style="display:none;"
-          onclick="app.adminGenesis()">ADMIN GENESIS</button>
+          data-act="adminGenesis">ADMIN GENESIS</button>
       </div>
     </div>
     <!-- 市場配布統計 -->
@@ -133,6 +286,19 @@
   </div>
 
   <!-- Modals -->
+  <div id="modal-export-confirm" class="modal hidden">
+    <div class="modal-content">
+      <h2>パスワードの確認</h2>
+      <p class="hint" style="margin: 10px 0;">秘密鍵の表示にはパスワードの再入力が必要です。</p>
+      <div class="form-group">
+        <label>パスワード</label>
+        <input type="password" id="export-password" autocomplete="current-password">
+      </div>
+      <button class="btn" data-act="confirmExportPassword" id="btn-export-confirm">確認</button>
+      <button class="btn btn-sm btn-secondary" data-act="hideModal" data-a1="modal-export-confirm">キャンセル</button>
+    </div>
+  </div>
+
   <div id="modal-key-export" class="modal hidden">
     <div class="modal-content">
       <h2>秘密鍵のエクスポート</h2>
@@ -140,8 +306,8 @@
         警告: この鍵があれば誰でも送金できます。
       </p>
       <textarea id="exported-key" readonly rows="3"></textarea>
-      <button class="btn btn-sm" style="margin-top: 10px;" onclick="app.copyToClipboard('exported-key')">鍵をコピー</button>
-      <button class="btn btn-sm btn-secondary" onclick="app.hideModal('modal-key-export')">閉じる</button>
+      <button class="btn btn-sm" style="margin-top: 10px;" data-act="copyToClipboard" data-a1="exported-key">鍵をコピー</button>
+      <button class="btn btn-sm btn-secondary" data-act="hideModal" data-a1="modal-key-export">閉じる</button>
     </div>
   </div>
 
@@ -149,7 +315,7 @@
     <div class="modal-content" style="text-align: center;">
       <h2>完了</h2>
       <p id="send-received-msg" style="margin: 15px 0; font-weight: 800; font-size: 0.8rem;"></p>
-      <button class="btn btn-sm" onclick="app.hideModal('modal-send-received')">閉じる</button>
+      <button class="btn btn-sm" data-act="hideModal" data-a1="modal-send-received">閉じる</button>
     </div>
   </div>
 
@@ -158,20 +324,96 @@
       <h2 id="dm-action-name" style="margin-bottom:5px;">User</h2>
       <p id="dm-action-addr" style="font-size:0.6rem; color:#888; margin-bottom:15px; word-break:break-all;"></p>
       
-      <button class="btn" onclick="app.prepareDirectSendFromDM()" style="margin-bottom: 10px;">送金する</button>
-      <button class="btn btn-secondary" onclick="app.sendPaymentRequest()" style="margin-bottom: 10px;">送金をお願いする</button>
-      <button class="btn btn-secondary" onclick="app.editNickname()" style="margin-bottom: 15px;">ニックネームを編集</button>
+      <button class="btn" data-act="prepareDirectSendFromDM" style="margin-bottom: 10px;">送金する</button>
+      <button class="btn btn-secondary" data-act="sendPaymentRequest" style="margin-bottom: 10px;">送金をお願いする</button>
+      <button class="btn btn-secondary" data-act="editNickname" style="margin-bottom: 15px;">ニックネームを編集</button>
 
-      <button class="btn btn-sm btn-secondary" onclick="app.hideModal('modal-dm-action')">閉じる</button>
+      <button class="btn btn-sm btn-secondary" data-act="hideModal" data-a1="modal-dm-action">閉じる</button>
     </div>
+  </div>
+
+  <!-- 送金確認モーダル（誤送金防止） -->
+  <div id="modal-send-confirm" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="confirm-title">送金の確認</h2>
+      <div class="confirm-rows">
+        <div class="confirm-row">
+          <span class="confirm-label">宛先</span>
+          <span class="confirm-value">
+            <strong id="confirm-to-name">—</strong>
+            <span id="confirm-to-addr" class="confirm-sub"></span>
+          </span>
+        </div>
+        <div class="confirm-row">
+          <span class="confirm-label">金額</span>
+          <span class="confirm-value confirm-amount"><span id="confirm-amount">0</span> KC</span>
+        </div>
+        <div class="confirm-row">
+          <span class="confirm-label">送金後残高</span>
+          <span class="confirm-value"><span id="confirm-after-balance">—</span> KC</span>
+        </div>
+      </div>
+      <p id="confirm-warning" class="warning hidden" style="margin-bottom: 10px;"></p>
+      <div class="form-group">
+        <label>メモ（任意・100文字）</label>
+        <input type="text" id="send-memo" maxlength="100" placeholder="例: ランチ代">
+      </div>
+      <button class="btn" data-act="confirmSendPending" id="btn-confirm-send">送金を実行</button>
+      <button class="btn btn-sm btn-secondary" data-act="cancelSendConfirm">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- 割り勘 進捗・支払いモーダル -->
+  <div id="modal-split" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="split-modal-title">割り勘</h2>
+      <p class="hint" id="split-modal-status" style="margin: 5px 0 10px;"></p>
+      <div class="confirm-rows">
+        <div class="confirm-row">
+          <span class="confirm-label">1人あたり</span>
+          <span class="confirm-value confirm-amount"><span id="split-modal-share">0</span> KC</span>
+        </div>
+        <div class="confirm-row">
+          <span class="confirm-label">参加</span>
+          <span class="confirm-value"><span id="split-modal-progress">0/0</span> 人</span>
+        </div>
+        <div class="confirm-row">
+          <span class="confirm-label">集計</span>
+          <span class="confirm-value"><span id="split-modal-collected">0</span> / <span id="split-modal-total">0</span> KC</span>
+        </div>
+      </div>
+      <div class="progress-track"><div id="split-modal-bar" class="progress-bar"></div></div>
+      <p class="hint" id="split-modal-creator" style="margin: 8px 0;"></p>
+      <p class="hint" id="split-modal-payers" style="margin-bottom: 10px;"></p>
+      <button class="btn" data-act="paySplit" id="btn-split-pay">支払う</button>
+      <p class="hint hidden" id="split-modal-pay-hint" style="margin-bottom: 8px;"></p>
+      <button class="btn btn-sm btn-secondary" data-act="closeSplit">閉じる</button>
+    </div>
+  </div>
+
+  <!-- QRスキャナー -->
+  <div id="scanner-overlay" class="scanner-overlay hidden">
+    <div id="scanner-region"></div>
+    <p id="scanner-status" class="scanner-status">カメラをQRコードに向けてください</p>
+    <button class="btn btn-secondary" data-act="stopScan">キャンセル</button>
   </div>
 
   <div id="toast-container"></div>
 
   <!-- Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.0/nacl-util.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.0/nacl-util.min.js"
+    integrity="sha384-5Qklnk7YNQnZHrIsKW9PYWq/le7YySAofeFIpw0jNooje79yhq/e/mk/Vj/qfbWy"
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"
+    integrity="sha384-LMUiUHpaYNGZFzWFRjsADnCSqae1Mk5llcUOHOLDhCxkyF2cdsWAueTZAzV+swW/"
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"
+    integrity="sha384-HGmnkDZJy7mRkoARekrrj0VjEFSh9a0Z8qxGri/kTTAJkgR8hqD1lHsYSh3JdzRi"
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="crypto.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"
+    integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+"
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="app.js"></script>
 </body>
 
