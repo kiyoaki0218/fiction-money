@@ -50,7 +50,10 @@ CREATE INDEX IF NOT EXISTS idx_split_bill_payments_bill
 CREATE INDEX IF NOT EXISTS idx_payment_requests_requester
   ON public.payment_requests (requester_address, status);
 
--- サーバ（service role）以外からの直接アクセスを遮断
-ALTER TABLE public.split_bills ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.split_bill_payments ENABLE ROW LEVEL SECURITY;
--- ポリシーは作らない＝service role のみアクセス可（参照は全て /api 経由）
+-- RLS は無効のままにする（他のテーブル accounts/transactions 等と同じ扱い）。
+-- ※当初は ENABLE していたが、本番の SUPABASE_KEY は service role ではなく
+--   anon キーのため `new row violates row-level security policy` で割り勘が
+--   全滅していた。DB へのアクセスは全てサーバ（/api）経由のみで、anon キーは
+--   サーバの環境変数としてのみ保持される（ブラウザには露出しない）。
+ALTER TABLE public.split_bills DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.split_bill_payments DISABLE ROW LEVEL SECURITY;
