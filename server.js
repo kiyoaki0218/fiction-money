@@ -12,6 +12,23 @@ const PORT = process.env.PORT || 3000;
 // リバースプロキシ（Vercel）配下でクライアントIPを正しく取得する（express-rate-limit の検証要件）
 app.set('trust proxy', 1);
 
+// Vercel の rewrites は rewrite 後のパス（/server.js）を関数へ渡してくるため、
+// rewrite 宛先のクエリ __orig に載せた元のパスへ復元する（→ /api/* のルーティングが
+// 通常のローカル実行と同じ動作になる）。ローカルでは __orig が無いので何もしない。
+app.use((req, res, next) => {
+  const qIdx = req.url.indexOf('?');
+  const qs = qIdx >= 0 ? req.url.slice(qIdx + 1) : '';
+  const m = qs.match(/(?:^|&)__orig=([^&]*)/);
+  if (m) {
+    let rest = qs.replace(/(?:^|&)__orig=[^&]*/, '');
+    rest = rest.replace(/^&/, '');
+    let orig;
+    try { orig = decodeURIComponent(m[1]); } catch (e) { orig = m[1]; }
+    req.url = orig + (rest ? `?${rest}` : '');
+  }
+  next();
+});
+
 // セキュリティヘッダ。
 // Vercel 上では vercel.json の headers 設定が全応答（静的ファイル含む）に適用されるため重複を避け、
 // ローカル/非Vercel環境でのみ Express から同じヘッダを返す。
